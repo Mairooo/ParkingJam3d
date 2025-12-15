@@ -25,7 +25,9 @@ export const COLORS = {
   highlight: 0x00ff00,
   collision: 0xff0000,
   elevator: 0xffaa00,
-  pillar: 0x555566
+  pillar: 0x555566,
+  exitZone: 0x00ff88,
+  playerVehicle: 0xffdd00
 }
 
 export const VEHICLE_COLORS = {

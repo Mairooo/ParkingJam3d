@@ -5,6 +5,7 @@ import { VehicleManager } from './game/VehicleManager.js'
 import { CollisionManager } from './game/CollisionManager.js'
 import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
+import { ExitZone } from './objects/ExitZone.js'
 import { COLORS, DIRECTIONS, FLOORS } from './utils/constants.js'
 
 // ========== SETUP SCENE ==========
@@ -66,6 +67,12 @@ scene.add(fillLight)
 // ========== PARKING MULTI-ÉTAGES ==========
 const parkingFloors = new ParkingFloors(scene)
 
+// ========== ZONE DE SORTIE ==========
+// Positionnée sur le bord droit du parking (étage 0)
+const exitZone = new ExitZone(scene, 6, 0, FLOORS[0].y)
+let playerVehicle = null
+let hasWon = false
+
 // ========== CHARGEMENT VÉHICULES ==========
 const textureLoader = new THREE.TextureLoader()
 const carTexture = textureLoader.load('/textures/colormap.png')
@@ -77,46 +84,41 @@ const vehicleManager = new VehicleManager(scene, carTexture)
 const collisionManager = new CollisionManager(vehicleManager)
 const inputController = new InputController(camera, vehicleManager, collisionManager)
 
-// Chargement des véhicules sur différents étages
+// Chargement des véhicules - NIVEAU 1
 async function initVehicles() {
-  // ÉTAGE 0 (Rez-de-chaussée)
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-4, FLOORS[0].y, -4),
+  // VÉHICULE JOUEUR (Taxi) - doit atteindre la zone de sortie à (6,0)
+  playerVehicle = await vehicleManager.loadVehicle(
+    '/models/taxi.glb',
+    new THREE.Vector3(-6, FLOORS[0].y, 0),
     DIRECTIONS.HORIZONTAL,
-    null,
-    0
+    COLORS.playerVehicle,
+    -Math.PI / 2  // Orienté vers la droite (+X)
   )
+  playerVehicle.isPlayer = true
   
+  // OBSTACLES - Configuration réalisable
+  // Van 1 : Bloque à X=2, peut se déplacer verticalement
   await vehicleManager.loadVehicle(
     '/models/van.glb',
-    new THREE.Vector3(4, FLOORS[0].y, 2),
+    new THREE.Vector3(2, FLOORS[0].y, 2),
     DIRECTIONS.VERTICAL,
     null,
     Math.PI / 2
   )
   
-  // ÉTAGE -1 (Sous-sol 1)
+  // Van 2 : En haut, doit descendre pour bloquer le passage
   await vehicleManager.loadVehicle(
     '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[1].y, -2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    0
-  )
-  
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-4, FLOORS[1].y, 4),
+    new THREE.Vector3(0, FLOORS[0].y, 4),
     DIRECTIONS.VERTICAL,
     null,
     Math.PI / 2
   )
   
-  // ÉTAGE -2 (Sous-sol 2)
+  // Van 3 : Horizontal, crée l'obstacle
   await vehicleManager.loadVehicle(
     '/models/van.glb',
-    new THREE.Vector3(0, FLOORS[2].y, 0),
+    new THREE.Vector3(0, FLOORS[0].y, -2),
     DIRECTIONS.HORIZONTAL,
     null,
     0
@@ -129,6 +131,20 @@ initVehicles()
 function animate() {
   requestAnimationFrame(animate)
   vehicleManager.update()
+  exitZone.update()
+  
+  // Vérifier si le joueur a gagné
+  if (playerVehicle && !hasWon && !playerVehicle.isMoving()) {
+    const pos = playerVehicle.getPosition()
+    if (exitZone.isVehicleInZone(pos)) {
+      hasWon = true
+      console.log('VICTOIRE ! Niveau terminé')
+      setTimeout(() => {
+        alert('Félicitations ! Vous avez réussi le niveau 1 !')
+      }, 300)
+    }
+  }
+  
   controls.update()
   renderer.render(scene, camera)
 }
