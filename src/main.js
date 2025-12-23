@@ -16,15 +16,29 @@ const canvas = document.querySelector('#canvas')
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(COLORS.background)
 
-// ========== CAMERA ==========
-const camera = new THREE.PerspectiveCamera(
+// ========== CAMERAS ==========
+// Caméra globale (vue d'ensemble)
+const globalCamera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 )
-camera.position.set(15, 8, 15)
-camera.lookAt(0, -4, 0) // Regarder vers le centre des étages
+globalCamera.position.set(15, 8, 15)
+globalCamera.lookAt(0, -3.2, 0) // Regarder vers le centre des étages
+
+// Caméra proche du taxi (suit le joueur)
+const taxiCamera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+)
+taxiCamera.position.set(4, 2, 4) // Position initiale près du taxi (plus basse)
+
+// Caméra active
+let activeCamera = globalCamera
+let isTaxiCameraActive = false
 
 // ========== RENDERER ==========
 const renderer = new THREE.WebGLRenderer({ 
@@ -34,16 +48,45 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.shadowMap.enabled = true
+
+// ========== GESTION DU REDIMENSIONNEMENT ==========
+window.addEventListener('resize', () => {
+  const width = window.innerWidth
+  const height = window.innerHeight
+  
+  // Mettre à jour les deux caméras
+  globalCamera.aspect = width / height
+  globalCamera.updateProjectionMatrix()
+  
+  taxiCamera.aspect = width / height
+  taxiCamera.updateProjectionMatrix()
+  
+  renderer.setSize(width, height)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+})
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 // ========== CONTROLS ==========
-const controls = new OrbitControls(camera, canvas)
-controls.enableDamping = true
-controls.dampingFactor = 0.05
-controls.maxPolarAngle = Math.PI / 2.2
-controls.minDistance = 8
-controls.maxDistance = 40
-controls.target.set(0, -4, 0) // Cible au centre des étages
+// Contrôles pour la caméra globale
+const globalControls = new OrbitControls(globalCamera, canvas)
+globalControls.enableDamping = true
+globalControls.dampingFactor = 0.05
+globalControls.maxPolarAngle = Math.PI / 2.2
+globalControls.minDistance = 8
+globalControls.maxDistance = 40
+globalControls.target.set(0, -3.2, 0) // Cible au centre des étages
+
+// Contrôles pour la caméra taxi
+const taxiControls = new OrbitControls(taxiCamera, canvas)
+taxiControls.enableDamping = true
+taxiControls.dampingFactor = 0.05
+taxiControls.maxPolarAngle = Math.PI / 2.5
+taxiControls.minDistance = 4
+taxiControls.maxDistance = 15
+taxiControls.enabled = false // Désactivé par défaut
+
+// Référence aux contrôles actifs
+let activeControls = globalControls
 
 // ========== LIGHTS ==========
 // Lumière ambiante
@@ -102,7 +145,75 @@ const onMove = () => {
   scoreManager.addMove()
 }
 
-const inputController = new InputController(camera, vehicleManager, collisionManager, elevators, onMove)
+let inputController = new InputController(activeCamera, vehicleManager, collisionManager, elevators, onMove)
+
+// Fonction pour changer de caméra
+function switchCamera() {
+  isTaxiCameraActive = !isTaxiCameraActive
+  
+  if (isTaxiCameraActive) {
+    activeCamera = taxiCamera
+    activeControls = taxiControls
+    globalControls.enabled = false
+    taxiControls.enabled = true
+    
+    // Positionner la caméra taxi près du joueur
+    if (playerVehicle) {
+      updateTaxiCamera()
+    }
+  } else {
+    activeCamera = globalCamera
+    activeControls = globalControls
+    taxiControls.enabled = false
+    globalControls.enabled = true
+  }
+  
+  // Mettre à jour l'InputController avec la nouvelle caméra
+  inputController.updateCamera(activeCamera)
+}
+
+// Fonction pour mettre à jour la position de la caméra taxi
+function updateTaxiCamera() {
+  if (!playerVehicle || !isTaxiCameraActive) return
+  
+  const pos = playerVehicle.getPosition()
+  
+  // Distance et hauteur de la caméra
+  // Hauteur réduite pour rester sous le plafond (étages = 4 de haut)
+  const distance = 6
+  const height = 1.8
+  
+  // Positionner la caméra en fonction de la position du taxi sur l'étage
+  // Si le taxi est à droite (x > 0), la caméra vient de la droite pour voir vers la gauche
+  // Si le taxi est à gauche (x < 0), la caméra vient de la gauche pour voir vers la droite
+  let cameraX, cameraZ
+  
+  if (pos.x > 0) {
+    // Taxi à droite, caméra derrière-droite, regarde vers la gauche
+    cameraX = pos.x + distance * 0.7
+    cameraZ = pos.z + distance * 0.5
+  } else {
+    // Taxi à gauche, caméra derrière-gauche, regarde vers la droite
+    cameraX = pos.x - distance * 0.7
+    cameraZ = pos.z + distance * 0.5
+  }
+  
+  const targetPosition = new THREE.Vector3(cameraX, pos.y + height, cameraZ)
+  
+  // Interpolation douce de la caméra
+  taxiCamera.position.lerp(targetPosition, 0.05)
+  
+  // La caméra regarde le taxi
+  const lookAtPos = new THREE.Vector3(pos.x, pos.y + 0.5, pos.z)
+  taxiControls.target.lerp(lookAtPos, 0.05)
+}
+
+// Écouter la touche 'C' pour changer de caméra
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'c' || event.key === 'C') {
+    switchCamera()
+  }
+})
 
 // ========== GUI lil-gui ==========
 const gui = new GUI()
@@ -111,7 +222,13 @@ const guiParams = {
   showGrid: true,
   resetLevel: () => {
     location.reload()
-  }
+  },
+  // Paramètres du parking
+  parkingScale: 0.1,
+  parkingX: 0,
+  parkingY: 0,
+  parkingZ: 0,
+  parkingRotationY: 0
 }
 
 // Dossier "Jeu"
@@ -119,10 +236,50 @@ const gameFolder = gui.addFolder('Jeu')
 gameFolder.add(guiParams, 'etage').name('Etage du taxi').listen().disable()
 gameFolder.add(guiParams, 'resetLevel').name('Recommencer')
 
+// Dossier "Caméra"
+const cameraFolder = gui.addFolder('Caméra')
+const cameraParams = {
+  cameraType: 'Vue globale',
+  switchCamera: () => {
+    switchCamera()
+    cameraParams.cameraType = isTaxiCameraActive ? 'Vue taxi' : 'Vue globale'
+  }
+}
+cameraFolder.add(cameraParams, 'cameraType').name('Caméra active').listen().disable()
+cameraFolder.add(cameraParams, 'switchCamera').name('Changer (touche C)')
+
 // Dossier "Affichage"
 const displayFolder = gui.addFolder('Affichage')
 displayFolder.add(guiParams, 'showGrid').name('Afficher grille').onChange((value) => {
   parkingFloors.toggleGrids(value)
+})
+
+// Dossier "Parking Model" pour ajuster le modèle 3D
+const parkingFolder = gui.addFolder('Parking Model')
+parkingFolder.add(guiParams, 'parkingScale', 0.01, 1, 0.01).name('Échelle').onChange((value) => {
+  if (parkingFloors.parkingModel) {
+    parkingFloors.parkingModel.scale.set(value, value, value)
+  }
+})
+parkingFolder.add(guiParams, 'parkingX', -50, 50, 0.5).name('Position X').onChange((value) => {
+  if (parkingFloors.parkingModel) {
+    parkingFloors.parkingModel.position.x = value
+  }
+})
+parkingFolder.add(guiParams, 'parkingY', -50, 50, 0.5).name('Position Y').onChange((value) => {
+  if (parkingFloors.parkingModel) {
+    parkingFloors.parkingModel.position.y = value
+  }
+})
+parkingFolder.add(guiParams, 'parkingZ', -50, 50, 0.5).name('Position Z').onChange((value) => {
+  if (parkingFloors.parkingModel) {
+    parkingFloors.parkingModel.position.z = value
+  }
+})
+parkingFolder.add(guiParams, 'parkingRotationY', -Math.PI, Math.PI, 0.1).name('Rotation Y').onChange((value) => {
+  if (parkingFloors.parkingModel) {
+    parkingFloors.parkingModel.rotation.y = value
+  }
 })
 
 // Fonction pour mettre à jour l'étage affiché
@@ -339,6 +496,9 @@ function animate() {
   // Mettre à jour l'affichage de l'étage du taxi
   updateTaxiFloorDisplay()
   
+  // Mettre à jour la caméra taxi si active
+  updateTaxiCamera()
+  
   // Vérifier si le joueur a gagné
   if (playerVehicle && !hasWon && !playerVehicle.isMoving()) {
     const pos = playerVehicle.getPosition()
@@ -351,8 +511,8 @@ function animate() {
     }
   }
   
-  controls.update()
-  renderer.render(scene, camera)
+  activeControls.update()
+  renderer.render(scene, activeCamera)
 }
 
 // ========== ÉCRAN DE VICTOIRE ==========

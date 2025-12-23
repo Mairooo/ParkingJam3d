@@ -15,6 +15,11 @@ export class InputController {
     this.setupEventListeners()
   }
   
+  // Méthode pour mettre à jour la caméra (changement de vue)
+  updateCamera(newCamera) {
+    this.camera = newCamera
+  }
+  
   setupEventListeners() {
     window.addEventListener('mousemove', (e) => this.onMouseMove(e))
     window.addEventListener('click', (e) => this.onMouseClick(e))

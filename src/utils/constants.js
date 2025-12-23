@@ -8,11 +8,11 @@ export const PARKING_BOUNDS = {
 }
 
 // Étages du parking
-export const FLOOR_HEIGHT = 4 // Hauteur entre chaque étage
+export const FLOOR_HEIGHT = 3.0 // Hauteur entre chaque étage
 export const FLOORS = [
   { level: 0, y: 0, name: 'Rez-de-chaussee' },
-  { level: 1, y: -4, name: 'Sous-sol -1' },
-  { level: 2, y: -8, name: 'Sous-sol -2' }
+  { level: 1, y: -3.0, name: 'Sous-sol -1' },
+  { level: 2, y: -6.0, name: 'Sous-sol -2' }
 ]
 
 export const COLORS = {
