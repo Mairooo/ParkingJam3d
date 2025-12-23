@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { VehicleManager } from './game/VehicleManager.js'
 import { CollisionManager } from './game/CollisionManager.js'
+import { ScoreManager } from './game/ScoreManager.js'
 import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
@@ -93,7 +94,14 @@ carTexture.colorSpace = THREE.SRGBColorSpace
 // Initialisation des managers
 const vehicleManager = new VehicleManager(scene, carTexture)
 const collisionManager = new CollisionManager(vehicleManager)
-const inputController = new InputController(camera, vehicleManager, collisionManager, elevators)
+const scoreManager = new ScoreManager()
+
+// Callback pour compter les mouvements
+const onMove = () => {
+  scoreManager.addMove()
+}
+
+const inputController = new InputController(camera, vehicleManager, collisionManager, elevators, onMove)
 
 // Chargement des véhicules - NIVEAU 1
 // Parking Jam classique : TOUS les véhicules sur UN seul axe
@@ -301,15 +309,74 @@ function animate() {
     const pos = playerVehicle.getPosition()
     if (exitZone.isVehicleInZone(pos)) {
       hasWon = true
-      console.log('VICTOIRE ! Niveau terminé')
-      setTimeout(() => {
-        alert('Félicitations ! Vous avez réussi le niveau 1 !')
-      }, 300)
+      scoreManager.stop()
+      
+      // Afficher l'écran de victoire
+      showVictoryScreen()
     }
   }
   
   controls.update()
   renderer.render(scene, camera)
+}
+
+// ========== ÉCRAN DE VICTOIRE ==========
+function showVictoryScreen() {
+  const overlay = document.createElement('div')
+  overlay.id = 'victory-screen'
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  `
+  
+  const content = document.createElement('div')
+  content.style.cssText = `
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 40px 60px;
+    border-radius: 20px;
+    text-align: center;
+    color: white;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+    border: 2px solid #00ff88;
+  `
+  
+  content.innerHTML = `
+    <h1 style="color: #00ff88; margin-bottom: 20px; font-size: 2.5em;">🎉 VICTOIRE !</h1>
+    <p style="font-size: 1.2em; margin-bottom: 30px;">Niveau 1 terminé</p>
+    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+      <p style="margin: 10px 0; font-size: 1.3em;">🚗 Mouvements: <strong>${scoreManager.getMoves()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.3em;">⏱️ Temps: <strong>${scoreManager.getFormattedTime()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.5em; color: #ffdd00;">⭐ Score: <strong>${scoreManager.getScore()}</strong></p>
+    </div>
+    <button id="restart-btn" style="
+      background: #00ff88;
+      color: #1a1a2e;
+      border: none;
+      padding: 15px 40px;
+      font-size: 1.2em;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s;
+    ">Rejouer</button>
+  `
+  
+  overlay.appendChild(content)
+  document.body.appendChild(overlay)
+  
+  // Bouton restart
+  document.getElementById('restart-btn').addEventListener('click', () => {
+    location.reload()
+  })
 }
 
 animate()

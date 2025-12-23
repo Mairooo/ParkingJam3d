@@ -2,11 +2,12 @@ import * as THREE from 'three'
 import { GRID_SIZE, PARKING_BOUNDS, DIRECTIONS } from '../utils/constants.js'
 
 export class InputController {
-  constructor(camera, vehicleManager, collisionManager, elevators = []) {
+  constructor(camera, vehicleManager, collisionManager, elevators = [], onMove = null) {
     this.camera = camera
     this.vehicleManager = vehicleManager
     this.collisionManager = collisionManager
     this.elevators = elevators
+    this.onMove = onMove  // Callback quand un mouvement est effectué
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
     this.selectedVehicle = null
@@ -144,6 +145,10 @@ export class InputController {
     
     // Déplacement valide
     this.selectedVehicle.moveTo(targetX, targetZ)
-    // Deplacement vers position cible
+    
+    // Notifier le scoring
+    if (this.onMove) {
+      this.onMove()
+    }
   }
 }
