@@ -6,6 +6,7 @@ export class ParkingFloors {
     this.scene = scene
     this.floors = []
     this.pillars = []
+    this.grids = []  // Stocker les grilles pour le toggle
     this.createFloors()
     this.createPillars()
   }
@@ -30,6 +31,7 @@ export class ParkingFloors {
       const gridHelper = new THREE.GridHelper(20, 20, COLORS.grid, COLORS.gridCenter)
       gridHelper.position.y = floorData.y + 0.01
       this.scene.add(gridHelper)
+      this.grids.push(gridHelper)  // Stocker la grille
       
       this.floors.push({ mesh: floor, data: floorData })
     })
@@ -64,5 +66,11 @@ export class ParkingFloors {
   getFloorYByLevel(level) {
     const floor = FLOORS.find(f => f.level === level)
     return floor ? floor.y : 0
+  }
+  
+  toggleGrids(visible) {
+    this.grids.forEach(grid => {
+      grid.visible = visible
+    })
   }
 }

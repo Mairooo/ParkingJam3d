@@ -29,12 +29,12 @@ export class ScoreManager {
     
     // Affichage mouvements
     this.movesDisplay = document.createElement('div')
-    this.movesDisplay.innerHTML = '🚗 Mouvements: <span id="moves-count">0</span>'
+    this.movesDisplay.innerHTML = 'Mouvements: <span id="moves-count">0</span>'
     this.movesDisplay.style.marginBottom = '8px'
     
     // Affichage timer
     this.timerDisplay = document.createElement('div')
-    this.timerDisplay.innerHTML = '⏱️ Temps: <span id="timer">00:00</span>'
+    this.timerDisplay.innerHTML = 'Temps: <span id="timer">00:00</span>'
     
     this.container.appendChild(this.movesDisplay)
     this.container.appendChild(this.timerDisplay)

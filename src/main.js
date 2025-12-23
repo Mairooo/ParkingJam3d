@@ -1,6 +1,7 @@
 import './style.css'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import GUI from 'lil-gui'
 import { VehicleManager } from './game/VehicleManager.js'
 import { CollisionManager } from './game/CollisionManager.js'
 import { ScoreManager } from './game/ScoreManager.js'
@@ -102,6 +103,37 @@ const onMove = () => {
 }
 
 const inputController = new InputController(camera, vehicleManager, collisionManager, elevators, onMove)
+
+// ========== GUI lil-gui ==========
+const gui = new GUI()
+const guiParams = {
+  etage: 'Rez-de-chaussée',
+  showGrid: true,
+  resetLevel: () => {
+    location.reload()
+  }
+}
+
+// Dossier "Jeu"
+const gameFolder = gui.addFolder('Jeu')
+gameFolder.add(guiParams, 'etage').name('Etage du taxi').listen().disable()
+gameFolder.add(guiParams, 'resetLevel').name('Recommencer')
+
+// Dossier "Affichage"
+const displayFolder = gui.addFolder('Affichage')
+displayFolder.add(guiParams, 'showGrid').name('Afficher grille').onChange((value) => {
+  parkingFloors.toggleGrids(value)
+})
+
+// Fonction pour mettre à jour l'étage affiché
+function updateTaxiFloorDisplay() {
+  if (!playerVehicle) return
+  const y = playerVehicle.getPosition().y
+  const floor = FLOORS.find(f => Math.abs(f.y - y) < 0.5)
+  if (floor) {
+    guiParams.etage = floor.name
+  }
+}
 
 // Chargement des véhicules - NIVEAU 1
 // Parking Jam classique : TOUS les véhicules sur UN seul axe
@@ -303,6 +335,9 @@ function animate() {
   vehicleManager.update()
   exitZone.update()
   elevators.forEach(elevator => elevator.update())
+  
+  // Mettre à jour l'affichage de l'étage du taxi
+  updateTaxiFloorDisplay()
   
   // Vérifier si le joueur a gagné
   if (playerVehicle && !hasWon && !playerVehicle.isMoving()) {
