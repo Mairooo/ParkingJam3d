@@ -2,10 +2,11 @@ import * as THREE from 'three'
 import { GRID_SIZE, PARKING_BOUNDS, DIRECTIONS } from '../utils/constants.js'
 
 export class InputController {
-  constructor(camera, vehicleManager, collisionManager) {
+  constructor(camera, vehicleManager, collisionManager, elevators = []) {
     this.camera = camera
     this.vehicleManager = vehicleManager
     this.collisionManager = collisionManager
+    this.elevators = elevators
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
     this.selectedVehicle = null
@@ -58,29 +59,61 @@ export class InputController {
     let targetZ = currentPos.z
     let moveDirection = null
     
-    // Calculer le vecteur avant du véhicule basé sur sa rotation
-    const rotation = this.selectedVehicle.model.rotation.y
-    const forward = new THREE.Vector3(
-      Math.sin(rotation),
-      0,
-      Math.cos(rotation)
-    )
+    // Gestion ascenseur
+    if (event.key === 'e' || event.key === 'E') {
+      // Descendre d'un étage
+      const elevator = this.elevators.find(e => e.isVehicleOnElevator(currentPos))
+      if (elevator && elevator.canGoDown()) {
+        const newFloorIndex = elevator.moveVehicleToFloorBelow(this.selectedVehicle)
+        if (newFloorIndex !== null) {
+          console.log(`Descente vers l'étage ${newFloorIndex}`)
+        }
+      }
+      return
+    }
     
-    // Déplacement: le véhicule avance/recule dans la direction de son orientation 3D
+    if (event.key === 'q' || event.key === 'Q') {
+      // Monter d'un étage
+      const elevator = this.elevators.find(e => e.isVehicleOnElevator(currentPos))
+      if (elevator && elevator.canGoUp()) {
+        const newFloorIndex = elevator.moveVehicleToFloorAbove(this.selectedVehicle)
+        if (newFloorIndex !== null) {
+          console.log(`Montée vers l'étage ${newFloorIndex}`)
+        }
+      }
+      return
+    }
+    
+    // Déplacement basé sur la direction autorisée du véhicule
+    // Parking Jam : chaque véhicule ne peut aller que sur UN axe
     switch(event.key) {
       case 'ArrowUp':
       case 'z':
-        // Avancer dans la direction du véhicule
-        targetX += forward.x * GRID_SIZE
-        targetZ += forward.z * GRID_SIZE
-        moveDirection = direction
+        if (direction === DIRECTIONS.VERTICAL) {
+          targetZ -= GRID_SIZE  // Vers le haut (-Z)
+          moveDirection = 'vertical'
+        }
         break
       case 'ArrowDown':
       case 's':
-        // Reculer (direction opposée)
-        targetX -= forward.x * GRID_SIZE
-        targetZ -= forward.z * GRID_SIZE
-        moveDirection = direction
+        if (direction === DIRECTIONS.VERTICAL) {
+          targetZ += GRID_SIZE  // Vers le bas (+Z)
+          moveDirection = 'vertical'
+        }
+        break
+      case 'ArrowLeft':
+      case 'a':
+        if (direction === DIRECTIONS.HORIZONTAL) {
+          targetX -= GRID_SIZE  // Vers la gauche (-X)
+          moveDirection = 'horizontal'
+        }
+        break
+      case 'ArrowRight':
+      case 'd':
+        if (direction === DIRECTIONS.HORIZONTAL) {
+          targetX += GRID_SIZE  // Vers la droite (+X)
+          moveDirection = 'horizontal'
+        }
         break
       default:
         return

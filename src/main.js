@@ -6,6 +6,7 @@ import { CollisionManager } from './game/CollisionManager.js'
 import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
+import { Elevator } from './objects/Elevator.js'
 import { COLORS, DIRECTIONS, FLOORS } from './utils/constants.js'
 
 // ========== SETUP SCENE ==========
@@ -67,9 +68,19 @@ scene.add(fillLight)
 // ========== PARKING MULTI-ÉTAGES ==========
 const parkingFloors = new ParkingFloors(scene)
 
+// ========== ASCENSEURS ==========
+// Pattern zigzag : ascenseur toujours à l'opposé du point d'arrivée
+// Étage 0 : Taxi à droite → Ascenseur à gauche
+// Étage -1 : Arrive à gauche → Ascenseur à droite
+// Étage -2 : Arrive à droite → Sortie à gauche (pas besoin d'ascenseur)
+const elevators = [
+  new Elevator(scene, -6, 0, 0),   // Étage 0 : ascenseur à GAUCHE
+  new Elevator(scene, 6, 0, 1)     // Étage -1 : ascenseur à DROITE
+]
+
 // ========== ZONE DE SORTIE ==========
-// Positionnée sur le bord droit du parking (étage 0)
-const exitZone = new ExitZone(scene, 6, 0, FLOORS[0].y)
+// Positionnée tout en bas du parking (sous-sol -2), côté GAUCHE
+const exitZone = new ExitZone(scene, -6, 0, FLOORS[2].y)
 let playerVehicle = null
 let hasWon = false
 
@@ -82,46 +93,197 @@ carTexture.colorSpace = THREE.SRGBColorSpace
 // Initialisation des managers
 const vehicleManager = new VehicleManager(scene, carTexture)
 const collisionManager = new CollisionManager(vehicleManager)
-const inputController = new InputController(camera, vehicleManager, collisionManager)
+const inputController = new InputController(camera, vehicleManager, collisionManager, elevators)
 
 // Chargement des véhicules - NIVEAU 1
+// Parking Jam classique : TOUS les véhicules sur UN seul axe
 async function initVehicles() {
-  // VÉHICULE JOUEUR (Taxi) - doit atteindre la zone de sortie à (6,0)
+  // ==========================================
+  // ÉTAGE 0 (Rez-de-chaussée) - y = 0
+  // Taxi à droite (x=6) → doit aller à l'ascenseur à gauche (x=-6)
+  // ==========================================
+  
+  // TAXI (Joueur) - HORIZONTAL uniquement
   playerVehicle = await vehicleManager.loadVehicle(
     '/models/taxi.glb',
-    new THREE.Vector3(-6, FLOORS[0].y, 0),
+    new THREE.Vector3(6, FLOORS[0].y, 0),
     DIRECTIONS.HORIZONTAL,
     COLORS.playerVehicle,
-    -Math.PI / 2  // Orienté vers la droite (+X)
+    Math.PI / 2  // Orienté vers la gauche
   )
   playerVehicle.isPlayer = true
   
-  // OBSTACLES - Configuration réalisable
-  // Van 1 : Bloque à X=2, peut se déplacer verticalement
+  // --- Obstacles Étage 0 ---
+  // Van vertical sur le chemin du taxi (ligne z=0)
   await vehicleManager.loadVehicle(
     '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[0].y, 2),
+    new THREE.Vector3(2, FLOORS[0].y, 0),
     DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van vertical bloquant aussi (ligne z=0)
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(-2, FLOORS[0].y, 0),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van horizontal en haut - bloque le van vertical
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(2, FLOORS[0].y, -2),
+    DIRECTIONS.HORIZONTAL,
     null,
     Math.PI / 2
   )
   
-  // Van 2 : En haut, doit descendre pour bloquer le passage
+  // Van horizontal en bas
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(-2, FLOORS[0].y, 2),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // Van vertical sur le côté
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(4, FLOORS[0].y, -4),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van horizontal en bas à droite
   await vehicleManager.loadVehicle(
     '/models/van.glb',
     new THREE.Vector3(0, FLOORS[0].y, 4),
-    DIRECTIONS.VERTICAL,
+    DIRECTIONS.HORIZONTAL,
     null,
     Math.PI / 2
   )
   
-  // Van 3 : Horizontal, crée l'obstacle
+  // ==========================================
+  // ÉTAGE -1 (Sous-sol 1) - y = -4
+  // Arrive à gauche (x=-6) → doit aller à l'ascenseur à droite (x=6)
+  // ==========================================
+  
+  // Van vertical bloquant le passage
   await vehicleManager.loadVehicle(
     '/models/van.glb',
-    new THREE.Vector3(0, FLOORS[0].y, -2),
-    DIRECTIONS.HORIZONTAL,
+    new THREE.Vector3(-2, FLOORS[1].y, 0),
+    DIRECTIONS.VERTICAL,
     null,
     0
+  )
+  
+  // Van vertical au centre
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(2, FLOORS[1].y, 0),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van horizontal en haut
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(0, FLOORS[1].y, -2),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // Van horizontal en bas
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(-4, FLOORS[1].y, 2),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // Van vertical côté droit
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(4, FLOORS[1].y, 2),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van horizontal en bas à droite
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(2, FLOORS[1].y, 4),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // ==========================================
+  // ÉTAGE -2 (Sous-sol 2) - y = -8
+  // Arrive à droite (x=6) → doit aller à la sortie à gauche (x=-6)
+  // ==========================================
+  
+  // Van vertical bloquant le passage
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(2, FLOORS[2].y, 0),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van vertical au centre-gauche
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(-2, FLOORS[2].y, 0),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van horizontal en haut
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(0, FLOORS[2].y, -2),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // Van horizontal en bas
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(4, FLOORS[2].y, 2),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // Van vertical côté gauche
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(-4, FLOORS[2].y, -4),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // Van horizontal tout en bas
+  await vehicleManager.loadVehicle(
+    '/models/van.glb',
+    new THREE.Vector3(-2, FLOORS[2].y, 4),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
   )
 }
 
@@ -132,6 +294,7 @@ function animate() {
   requestAnimationFrame(animate)
   vehicleManager.update()
   exitZone.update()
+  elevators.forEach(elevator => elevator.update())
   
   // Vérifier si le joueur a gagné
   if (playerVehicle && !hasWon && !playerVehicle.isMoving()) {
