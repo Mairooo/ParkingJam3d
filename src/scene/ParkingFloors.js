@@ -10,12 +10,13 @@ export class ParkingFloors {
     this.pillars = []
     this.grids = []  // Stocker les grilles pour le toggle
     this.parkingModel = null
+    this.parkingInstances = [] // Stocker les instances pour optimisation
     this.loader = new GLTFLoader()
     this.tgaLoader = new TGALoader()
     this.textures = {}
     
     this.loadTextures().then(() => {
-      this.loadParkingModel()
+      this.loadParkingModelInstanced()
     })
     this.createFloors()
     this.createPillars()
@@ -74,73 +75,125 @@ export class ParkingFloors {
     })
   }
   
-  loadParkingModel() {
-    // Charger le parking 3 fois pour les 3 étages
-    const floorYPositions = [0, -3.0, -6.0] // Y=0, Y=-3.0, Y=-6.0
+  loadParkingModelInstanced() {
+    // Charger le parking UNE SEULE FOIS puis créer des instances
+    const floorYPositions = [0, -3.0, -6.0]
     
-    floorYPositions.forEach((floorY, index) => {
-      this.loader.load(
-        '/models/parking.glb',
-        (gltf) => {
-          const parkingClone = gltf.scene
+    this.loader.load(
+      '/models/parking.glb',
+      (gltf) => {
+        const originalParking = gltf.scene
+        
+        // Valeurs ajustées
+        const scale = 0.01
+        const offsetX = 4.5
+        const offsetZ = -10
+        const rotationY = Math.PI
+        
+        // Parcourir chaque mesh et créer des InstancedMesh
+        const meshesToInstance = []
+        
+        originalParking.traverse((child) => {
+          if (child.isMesh) {
+            meshesToInstance.push({
+              geometry: child.geometry,
+              material: child.material,
+              name: child.name,
+              localMatrix: child.matrix.clone(),
+              position: child.position.clone(),
+              rotation: child.rotation.clone(),
+              scale: child.scale.clone()
+            })
+          }
+        })
+        
+        // Pour chaque mesh, créer un InstancedMesh avec 3 instances
+        meshesToInstance.forEach((meshData) => {
+          const instancedMesh = new THREE.InstancedMesh(
+            meshData.geometry,
+            meshData.material,
+            floorYPositions.length // 3 instances
+          )
           
-          // Valeurs ajustées par l'utilisateur
-          const scale = 0.01
-          const offsetX = 4.5
-          const offsetZ = -10
-          const rotationY = Math.PI // ~3.15
-          
-          parkingClone.scale.set(scale, scale, scale)
-          parkingClone.position.set(offsetX, floorY, offsetZ)
-          parkingClone.rotation.y = rotationY
-          
-          // Appliquer les textures aux meshes selon leur nom
-          parkingClone.traverse((child) => {
-            if (child.isMesh) {
-              child.castShadow = true
-              child.receiveShadow = true
-              
-              const name = child.name.toLowerCase()
-              
-              // Appliquer les textures selon le nom du mesh
-              if (name.includes('floor') || name.includes('sol')) {
-                this.applyTextures(child, 'floor')
-              } else if (name.includes('wall') || name.includes('mur')) {
-                this.applyTextures(child, 'wall')
-              } else if (name.includes('ceiling') || name.includes('plafond')) {
-                this.applyTextures(child, 'ceiling')
-              } else if (name.includes('piller') || name.includes('pillar') || name.includes('pilier')) {
-                this.applyTextures(child, 'piller')
-              } else if (name.includes('door') || name.includes('porte')) {
-                this.applyTextures(child, 'door')
-              } else if (name.includes('duct') || name.includes('conduit') || name.includes('pipe')) {
-                this.applyTextures(child, 'duct')
-              } else if (name.includes('prop') || name.includes('object')) {
-                this.applyTextures(child, 'props')
-              } else {
-                // Texture par défaut pour les autres meshes
-                this.applyTextures(child, 'wall')
-              }
-            }
-          })
-          
-          this.scene.add(parkingClone)
-          
-          // Stocker la référence du premier étage pour le GUI
-          if (index === 0) {
-            this.parkingModel = parkingClone
+          // Appliquer les textures selon le nom
+          const name = meshData.name.toLowerCase()
+          if (name.includes('floor') || name.includes('sol')) {
+            this.applyTextures(instancedMesh, 'floor')
+          } else if (name.includes('wall') || name.includes('mur')) {
+            this.applyTextures(instancedMesh, 'wall')
+          } else if (name.includes('ceiling') || name.includes('plafond')) {
+            this.applyTextures(instancedMesh, 'ceiling')
+          } else if (name.includes('piller') || name.includes('pillar') || name.includes('pilier')) {
+            this.applyTextures(instancedMesh, 'piller')
+          } else if (name.includes('door') || name.includes('porte')) {
+            this.applyTextures(instancedMesh, 'door')
+          } else if (name.includes('duct') || name.includes('conduit') || name.includes('pipe')) {
+            this.applyTextures(instancedMesh, 'duct')
+          } else if (name.includes('prop') || name.includes('object')) {
+            this.applyTextures(instancedMesh, 'props')
+          } else {
+            this.applyTextures(instancedMesh, 'wall')
           }
           
-          console.log(`✅ Parking floor ${index} loaded at Y=${floorY}`)
-        },
-        (progress) => {
-          console.log(`Loading parking floor ${index}...`, (progress.loaded / progress.total * 100).toFixed(0) + '%')
-        },
-        (error) => {
-          console.error('❌ Error loading parking model:', error)
-        }
-      )
-    })
+          // Configurer chaque instance (une par étage)
+          const matrix = new THREE.Matrix4()
+          const position = new THREE.Vector3()
+          const quaternion = new THREE.Quaternion()
+          const scaleVec = new THREE.Vector3()
+          
+          floorYPositions.forEach((floorY, index) => {
+            // Position de base du mesh + offset de l'étage
+            position.set(
+              meshData.position.x * scale + offsetX,
+              meshData.position.y * scale + floorY,
+              meshData.position.z * scale + offsetZ
+            )
+            
+            // Rotation
+            quaternion.setFromEuler(new THREE.Euler(
+              meshData.rotation.x,
+              meshData.rotation.y + rotationY,
+              meshData.rotation.z
+            ))
+            
+            // Échelle
+            scaleVec.set(
+              meshData.scale.x * scale,
+              meshData.scale.y * scale,
+              meshData.scale.z * scale
+            )
+            
+            matrix.compose(position, quaternion, scaleVec)
+            instancedMesh.setMatrixAt(index, matrix)
+          })
+          
+          instancedMesh.instanceMatrix.needsUpdate = true
+          instancedMesh.castShadow = true
+          instancedMesh.receiveShadow = true
+          instancedMesh.frustumCulled = true // Activer explicitement le frustum culling
+          
+          this.scene.add(instancedMesh)
+          this.parkingInstances.push(instancedMesh)
+        })
+        
+        // Stocker une référence pour le GUI
+        this.parkingModel = { position: new THREE.Vector3(offsetX, 0, offsetZ) }
+        
+        console.log(`✅ Parking loaded with ${meshesToInstance.length} instanced meshes (${floorYPositions.length} floors each)`)
+        console.log(`📊 Optimisation: ${meshesToInstance.length * floorYPositions.length} objets → ${meshesToInstance.length} draw calls`)
+      },
+      (progress) => {
+        console.log(`Loading parking...`, (progress.loaded / progress.total * 100).toFixed(0) + '%')
+      },
+      (error) => {
+        console.error('❌ Error loading parking model:', error)
+      }
+    )
+  }
+  
+  // Ancienne méthode gardée pour compatibilité
+  loadParkingModel() {
+    this.loadParkingModelInstanced()
   }
   
   applyTextures(mesh, type) {
