@@ -6,6 +6,7 @@ import { VehicleManager } from './game/VehicleManager.js'
 import { CollisionManager } from './game/CollisionManager.js'
 import { ScoreManager } from './game/ScoreManager.js'
 import { MoveManager } from './game/MoveManager.js'
+import { SaveManager } from './game/SaveManager.js'
 import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
@@ -141,11 +142,17 @@ const vehicleManager = new VehicleManager(scene, carTexture)
 const collisionManager = new CollisionManager(vehicleManager)
 const scoreManager = new ScoreManager()
 const moveManager = new MoveManager()
+const saveManager = new SaveManager()
 
 // Callback pour compter les mouvements
 const onMove = (vehicle, fromX, fromZ, toX, toZ) => {
   scoreManager.addMove()
   moveManager.addMove(vehicle, fromX, fromZ, toX, toZ)
+  
+  // Auto-save après chaque mouvement
+  if (saveManager.autoSaveEnabled) {
+    saveManager.saveGameState(vehicleManager, scoreManager, moveManager.history)
+  }
 }
 
 let inputController = new InputController(activeCamera, vehicleManager, collisionManager, elevators, onMove)
@@ -567,7 +574,24 @@ async function initVehicles() {
   )
 }
 
-initVehicles()
+initVehicles().then(() => {
+  // Charger la sauvegarde si elle existe
+  const savedState = saveManager.load()
+  if (savedState && savedState.vehicles) {
+    // Demander si on veut reprendre
+    if (confirm('Une partie sauvegardée a été trouvée. Voulez-vous la reprendre ?')) {
+      saveManager.restoreGameState(vehicleManager, scoreManager, savedState)
+    } else {
+      saveManager.clearSave()
+    }
+  }
+  
+  // Afficher le meilleur score dans la console
+  const bestScore = saveManager.getBestScore()
+  if (bestScore) {
+    console.log(`Meilleur score: ${bestScore.moves} mouvements en ${Math.floor(bestScore.time/60)}:${(bestScore.time%60).toString().padStart(2,'0')}`)
+  }
+})
 
 // ========== ANIMATION LOOP ==========
 function animate() {
@@ -589,6 +613,10 @@ function animate() {
       hasWon = true
       scoreManager.stop()
       
+      // Sauvegarder le meilleur score et effacer la sauvegarde de partie
+      saveManager.saveBestScore(scoreManager.moves, scoreManager.elapsedTime)
+      saveManager.clearSave()
+      
       // Afficher l'écran de victoire
       showVictoryScreen()
     }
@@ -600,6 +628,9 @@ function animate() {
 
 // ========== ÉCRAN DE VICTOIRE ==========
 function showVictoryScreen() {
+  const bestScore = saveManager.getBestScore()
+  const isNewBest = bestScore && bestScore.moves === scoreManager.moves && bestScore.time === scoreManager.elapsedTime
+  
   const overlay = document.createElement('div')
   overlay.id = 'victory-screen'
   overlay.style.cssText = `
@@ -627,6 +658,19 @@ function showVictoryScreen() {
     border: 2px solid #00ff88;
   `
   
+  // Formater le meilleur temps
+  let bestScoreHTML = ''
+  if (bestScore) {
+    const bestMinutes = Math.floor(bestScore.time / 60).toString().padStart(2, '0')
+    const bestSeconds = (bestScore.time % 60).toString().padStart(2, '0')
+    bestScoreHTML = `
+      <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+        <p style="margin: 5px 0; font-size: 1em; color: #aaa;">🏆 Meilleur score: <strong>${bestScore.moves}</strong> mouvements en <strong>${bestMinutes}:${bestSeconds}</strong></p>
+        ${isNewBest ? '<p style="color: #ffdd00; font-size: 1.1em; margin-top: 10px;">🎊 Nouveau record !</p>' : ''}
+      </div>
+    `
+  }
+  
   content.innerHTML = `
     <h1 style="color: #00ff88; margin-bottom: 20px; font-size: 2.5em;">🎉 VICTOIRE !</h1>
     <p style="font-size: 1.2em; margin-bottom: 30px;">Niveau 1 terminé</p>
@@ -634,6 +678,7 @@ function showVictoryScreen() {
       <p style="margin: 10px 0; font-size: 1.3em;">🚗 Mouvements: <strong>${scoreManager.getMoves()}</strong></p>
       <p style="margin: 10px 0; font-size: 1.3em;">⏱️ Temps: <strong>${scoreManager.getFormattedTime()}</strong></p>
       <p style="margin: 10px 0; font-size: 1.5em; color: #ffdd00;">⭐ Score: <strong>${scoreManager.getScore()}</strong></p>
+      ${bestScoreHTML}
     </div>
     <button id="restart-btn" style="
       background: #00ff88;
