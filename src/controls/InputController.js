@@ -148,12 +148,16 @@ export class InputController {
       return
     }
     
+    // Sauvegarder la position actuelle avant le déplacement
+    const fromX = currentPos.x
+    const fromZ = currentPos.z
+    
     // Déplacement valide
     this.selectedVehicle.moveTo(targetX, targetZ)
     
-    // Notifier le scoring
+    // Notifier le scoring avec les positions
     if (this.onMove) {
-      this.onMove()
+      this.onMove(this.selectedVehicle, fromX, fromZ, targetX, targetZ)
     }
   }
 }

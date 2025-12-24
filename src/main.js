@@ -5,6 +5,7 @@ import GUI from 'lil-gui'
 import { VehicleManager } from './game/VehicleManager.js'
 import { CollisionManager } from './game/CollisionManager.js'
 import { ScoreManager } from './game/ScoreManager.js'
+import { MoveManager } from './game/MoveManager.js'
 import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
@@ -139,10 +140,12 @@ carTexture.colorSpace = THREE.SRGBColorSpace
 const vehicleManager = new VehicleManager(scene, carTexture)
 const collisionManager = new CollisionManager(vehicleManager)
 const scoreManager = new ScoreManager()
+const moveManager = new MoveManager()
 
 // Callback pour compter les mouvements
-const onMove = () => {
+const onMove = (vehicle, fromX, fromZ, toX, toZ) => {
   scoreManager.addMove()
+  moveManager.addMove(vehicle, fromX, fromZ, toX, toZ)
 }
 
 let inputController = new InputController(activeCamera, vehicleManager, collisionManager, elevators, onMove)
@@ -212,6 +215,23 @@ function updateTaxiCamera() {
 window.addEventListener('keydown', (event) => {
   if (event.key === 'c' || event.key === 'C') {
     switchCamera()
+  }
+  
+  // Ctrl+Z pour annuler le dernier mouvement
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+    event.preventDefault() // Empêcher le comportement par défaut du navigateur
+    
+    if (moveManager.canUndo()) {
+      moveManager.undo()
+      
+      // Décrémenter le compteur de mouvements
+      scoreManager.moves = Math.max(0, scoreManager.moves - 1)
+      scoreManager.updateDisplay()
+      
+      console.log('Mouvement annulé')
+    } else {
+      console.log('Aucun mouvement à annuler')
+    }
   }
 })
 
@@ -365,6 +385,24 @@ async function initVehicles() {
     Math.PI / 2
   )
   
+  // TRUCK-FLAT horizontal - gros obstacle
+  await vehicleManager.loadVehicle(
+    '/models/truck-flat.glb',
+    new THREE.Vector3(-4, FLOORS[0].y, -2),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // DELIVERY vertical - camion de livraison
+  await vehicleManager.loadVehicle(
+    '/models/delivery.glb',
+    new THREE.Vector3(6, FLOORS[0].y, 4),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
   // ==========================================
   // ÉTAGE -1 (Sous-sol 1) - y = -4
   // Arrive à gauche (x=-6) → doit aller à l'ascenseur à droite (x=6)
@@ -424,6 +462,24 @@ async function initVehicles() {
     Math.PI / 2
   )
   
+  // DELIVERY horizontal - camion au milieu
+  await vehicleManager.loadVehicle(
+    '/models/delivery.glb',
+    new THREE.Vector3(0, FLOORS[1].y, -4),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // TRUCK-FLAT vertical - bloque passage
+  await vehicleManager.loadVehicle(
+    '/models/truck-flat.glb',
+    new THREE.Vector3(-4, FLOORS[1].y, -2),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
   // ==========================================
   // ÉTAGE -2 (Sous-sol 2) - y = -8
   // Arrive à droite (x=6) → doit aller à la sortie à gauche (x=-6)
@@ -481,6 +537,33 @@ async function initVehicles() {
     DIRECTIONS.HORIZONTAL,
     null,
     Math.PI / 2
+  )
+  
+  // TRUCK-FLAT horizontal - gros obstacle
+  await vehicleManager.loadVehicle(
+    '/models/truck-flat.glb',
+    new THREE.Vector3(2, FLOORS[2].y, -4),
+    DIRECTIONS.HORIZONTAL,
+    null,
+    Math.PI / 2
+  )
+  
+  // DELIVERY vertical - bloque côté droit
+  await vehicleManager.loadVehicle(
+    '/models/delivery.glb',
+    new THREE.Vector3(6, FLOORS[2].y, -2),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
+  )
+  
+  // TRUCK-FLAT vertical - obstacle final
+  await vehicleManager.loadVehicle(
+    '/models/truck-flat.glb',
+    new THREE.Vector3(-6, FLOORS[2].y, 2),
+    DIRECTIONS.VERTICAL,
+    null,
+    0
   )
 }
 
