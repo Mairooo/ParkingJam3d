@@ -12,6 +12,10 @@ import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
 import { Elevator } from './objects/Elevator.js'
 import { COLORS, DIRECTIONS, FLOORS } from './utils/constants.js'
+import { LevelManager, LEVELS } from './game/LevelManager.js'
+
+// ========== LEVEL MANAGER ==========
+const levelManager = new LevelManager()
 
 // ========== SETUP SCENE ==========
 const canvas = document.querySelector('#canvas')
@@ -42,6 +46,15 @@ taxiCamera.position.set(4, 2, 4) // Position initiale près du taxi (plus basse)
 let activeCamera = globalCamera
 let isTaxiCameraActive = false
 
+// ========== CLIPPING PLANES (pour découper le parking) ==========
+// Zone de jeu : environ x=-10 à x=6, z=-6 à z=6
+const clippingPlanes = [
+  new THREE.Plane(new THREE.Vector3(1, 0, 0), 13),   // Gauche (x > -10)
+  new THREE.Plane(new THREE.Vector3(-1, 0, 0), 8),  // Droite (x < 8)
+  new THREE.Plane(new THREE.Vector3(0, 0, 1), 7),   // Avant (z > -7)
+  new THREE.Plane(new THREE.Vector3(0, 0, -1), 7),  // Arrière (z < 7)
+]
+
 // ========== RENDERER ==========
 const renderer = new THREE.WebGLRenderer({ 
   canvas,
@@ -50,6 +63,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.shadowMap.enabled = true
+renderer.localClippingEnabled = true // Activer le clipping pour découper le parking
 
 // ========== GESTION DU REDIMENSIONNEMENT ==========
 window.addEventListener('resize', () => {
@@ -113,21 +127,17 @@ fillLight.position.set(-5, 10, -5)
 scene.add(fillLight)
 
 // ========== PARKING MULTI-ÉTAGES ==========
-const parkingFloors = new ParkingFloors(scene)
+const parkingFloors = new ParkingFloors(scene, clippingPlanes)
 
-// ========== ASCENSEURS ==========
-// Pattern zigzag : ascenseur toujours à l'opposé du point d'arrivée
-// Étage 0 : Taxi à droite → Ascenseur à gauche
-// Étage -1 : Arrive à gauche → Ascenseur à droite
-// Étage -2 : Arrive à droite → Sortie à gauche (pas besoin d'ascenseur)
-const elevators = [
-  new Elevator(scene, -6, 0, 0),   // Étage 0 : ascenseur à GAUCHE
-  new Elevator(scene, 6, 0, 1)     // Étage -1 : ascenseur à DROITE
-]
+// ========== ASCENSEURS (dynamiques selon le niveau) ==========
+const currentLevelConfig = levelManager.getCurrentLevel()
+const elevators = currentLevelConfig.elevators.map(e => 
+  new Elevator(scene, e.x, e.z, e.floorIndex)
+)
 
-// ========== ZONE DE SORTIE ==========
-// Positionnée tout en bas du parking (sous-sol -2), côté GAUCHE
-const exitZone = new ExitZone(scene, -6, 0, FLOORS[2].y)
+// ========== ZONE DE SORTIE (dynamique selon le niveau) ==========
+const exitFloorY = FLOORS[currentLevelConfig.exitFloor].y
+const exitZone = new ExitZone(scene, currentLevelConfig.exitPosition.x, currentLevelConfig.exitPosition.z, exitFloorY)
 let playerVehicle = null
 let hasWon = false
 
@@ -247,21 +257,30 @@ const gui = new GUI()
 const guiParams = {
   etage: 'Rez-de-chaussée',
   showGrid: true,
+  currentLevel: levelManager.currentLevel,
   resetLevel: () => {
     location.reload()
   },
-  // Paramètres du parking
-  parkingScale: 0.1,
-  parkingX: 0,
-  parkingY: 0,
-  parkingZ: 0,
-  parkingRotationY: 0
+  loadLevel: () => {
+    localStorage.setItem('parkingJam_selectedLevel', guiParams.currentLevel)
+    location.reload()
+  }
+}
+
+// Charger le niveau sélectionné
+const savedLevel = localStorage.getItem('parkingJam_selectedLevel')
+if (savedLevel) {
+  levelManager.setLevel(parseInt(savedLevel))
+  guiParams.currentLevel = levelManager.currentLevel
+  localStorage.removeItem('parkingJam_selectedLevel')
 }
 
 // Dossier "Jeu"
 const gameFolder = gui.addFolder('Jeu')
-gameFolder.add(guiParams, 'etage').name('Etage du taxi').listen().disable()
-gameFolder.add(guiParams, 'resetLevel').name('Recommencer')
+gameFolder.add(guiParams, 'currentLevel', { 'Niveau 1 - Facile': 1, 'Niveau 2 - Moyen': 2, 'Niveau 3 - Difficile': 3 }).name('Niveau')
+gameFolder.add(guiParams, 'loadLevel').name('▶ Lancer ce niveau')
+gameFolder.add(guiParams, 'etage').name('Étage actuel').listen().disable()
+gameFolder.add(guiParams, 'resetLevel').name('↺ Recommencer')
 
 // Dossier "Caméra"
 const cameraFolder = gui.addFolder('Caméra')
@@ -281,33 +300,8 @@ displayFolder.add(guiParams, 'showGrid').name('Afficher grille').onChange((value
   parkingFloors.toggleGrids(value)
 })
 
-// Dossier "Parking Model" pour ajuster le modèle 3D
-const parkingFolder = gui.addFolder('Parking Model')
-parkingFolder.add(guiParams, 'parkingScale', 0.01, 1, 0.01).name('Échelle').onChange((value) => {
-  if (parkingFloors.parkingModel) {
-    parkingFloors.parkingModel.scale.set(value, value, value)
-  }
-})
-parkingFolder.add(guiParams, 'parkingX', -50, 50, 0.5).name('Position X').onChange((value) => {
-  if (parkingFloors.parkingModel) {
-    parkingFloors.parkingModel.position.x = value
-  }
-})
-parkingFolder.add(guiParams, 'parkingY', -50, 50, 0.5).name('Position Y').onChange((value) => {
-  if (parkingFloors.parkingModel) {
-    parkingFloors.parkingModel.position.y = value
-  }
-})
-parkingFolder.add(guiParams, 'parkingZ', -50, 50, 0.5).name('Position Z').onChange((value) => {
-  if (parkingFloors.parkingModel) {
-    parkingFloors.parkingModel.position.z = value
-  }
-})
-parkingFolder.add(guiParams, 'parkingRotationY', -Math.PI, Math.PI, 0.1).name('Rotation Y').onChange((value) => {
-  if (parkingFloors.parkingModel) {
-    parkingFloors.parkingModel.rotation.y = value
-  }
-})
+// Afficher le niveau actuel dans la console
+console.log(`🎮 Niveau ${levelManager.currentLevel} chargé: ${levelManager.getCurrentLevel().name}`)
 
 // Fonction pour mettre à jour l'étage affiché
 function updateTaxiFloorDisplay() {
@@ -319,259 +313,34 @@ function updateTaxiFloorDisplay() {
   }
 }
 
-// Chargement des véhicules - NIVEAU 1
-// Parking Jam classique : TOUS les véhicules sur UN seul axe
+// Chargement des véhicules depuis le LevelManager
 async function initVehicles() {
-  // ==========================================
-  // ÉTAGE 0 (Rez-de-chaussée) - y = 0
-  // Taxi à droite (x=6) → doit aller à l'ascenseur à gauche (x=-6)
-  // ==========================================
+  const level = levelManager.getCurrentLevel()
+  console.log(`Chargement du ${level.name}...`)
   
-  // TAXI (Joueur) - HORIZONTAL uniquement
+  // Charger le joueur (taxi)
+  const p = level.player
   playerVehicle = await vehicleManager.loadVehicle(
-    '/models/taxi.glb',
-    new THREE.Vector3(6, FLOORS[0].y, 0),
-    DIRECTIONS.HORIZONTAL,
+    p.model,
+    new THREE.Vector3(p.position.x, p.position.y, p.position.z),
+    p.direction,
     COLORS.playerVehicle,
-    Math.PI / 2  // Orienté vers la gauche
+    p.rotation
   )
   playerVehicle.isPlayer = true
   
-  // --- Obstacles Étage 0 ---
-  // Van vertical sur le chemin du taxi (ligne z=0)
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[0].y, 0),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
+  // Charger tous les véhicules obstacles
+  for (const v of level.vehicles) {
+    await vehicleManager.loadVehicle(
+      v.model,
+      new THREE.Vector3(v.position.x, v.position.y, v.position.z),
+      v.direction,
+      null,
+      v.rotation
+    )
+  }
   
-  // Van vertical bloquant aussi (ligne z=0)
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-2, FLOORS[0].y, 0),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van horizontal en haut - bloque le van vertical
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[0].y, -2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // Van horizontal en bas
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-2, FLOORS[0].y, 2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // Van vertical sur le côté
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(4, FLOORS[0].y, -4),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van horizontal en bas à droite
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(0, FLOORS[0].y, 4),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // TRUCK-FLAT horizontal - gros obstacle
-  await vehicleManager.loadVehicle(
-    '/models/truck-flat.glb',
-    new THREE.Vector3(-4, FLOORS[0].y, -2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // DELIVERY vertical - camion de livraison
-  await vehicleManager.loadVehicle(
-    '/models/delivery.glb',
-    new THREE.Vector3(6, FLOORS[0].y, 4),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // ==========================================
-  // ÉTAGE -1 (Sous-sol 1) - y = -4
-  // Arrive à gauche (x=-6) → doit aller à l'ascenseur à droite (x=6)
-  // ==========================================
-  
-  // Van vertical bloquant le passage
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-2, FLOORS[1].y, 0),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van vertical au centre
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[1].y, 0),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van horizontal en haut
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(0, FLOORS[1].y, -2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // Van horizontal en bas
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-4, FLOORS[1].y, 2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // Van vertical côté droit
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(4, FLOORS[1].y, 2),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van horizontal en bas à droite
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[1].y, 4),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // DELIVERY horizontal - camion au milieu
-  await vehicleManager.loadVehicle(
-    '/models/delivery.glb',
-    new THREE.Vector3(0, FLOORS[1].y, -4),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // TRUCK-FLAT vertical - bloque passage
-  await vehicleManager.loadVehicle(
-    '/models/truck-flat.glb',
-    new THREE.Vector3(-4, FLOORS[1].y, -2),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // ==========================================
-  // ÉTAGE -2 (Sous-sol 2) - y = -8
-  // Arrive à droite (x=6) → doit aller à la sortie à gauche (x=-6)
-  // ==========================================
-  
-  // Van vertical bloquant le passage
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(2, FLOORS[2].y, 0),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van vertical au centre-gauche
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-2, FLOORS[2].y, 0),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van horizontal en haut
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(0, FLOORS[2].y, -2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // Van horizontal en bas
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(4, FLOORS[2].y, 2),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // Van vertical côté gauche
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-4, FLOORS[2].y, -4),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // Van horizontal tout en bas
-  await vehicleManager.loadVehicle(
-    '/models/van.glb',
-    new THREE.Vector3(-2, FLOORS[2].y, 4),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // TRUCK-FLAT horizontal - gros obstacle
-  await vehicleManager.loadVehicle(
-    '/models/truck-flat.glb',
-    new THREE.Vector3(2, FLOORS[2].y, -4),
-    DIRECTIONS.HORIZONTAL,
-    null,
-    Math.PI / 2
-  )
-  
-  // DELIVERY vertical - bloque côté droit
-  await vehicleManager.loadVehicle(
-    '/models/delivery.glb',
-    new THREE.Vector3(6, FLOORS[2].y, -2),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
-  
-  // TRUCK-FLAT vertical - obstacle final
-  await vehicleManager.loadVehicle(
-    '/models/truck-flat.glb',
-    new THREE.Vector3(-6, FLOORS[2].y, 2),
-    DIRECTIONS.VERTICAL,
-    null,
-    0
-  )
+  console.log(`✅ ${level.vehicles.length + 1} véhicules chargés`)
 }
 
 initVehicles().then(() => {
@@ -630,6 +399,12 @@ function animate() {
 function showVictoryScreen() {
   const bestScore = saveManager.getBestScore()
   const isNewBest = bestScore && bestScore.moves === scoreManager.moves && bestScore.time === scoreManager.elapsedTime
+  const hasNextLevel = levelManager.currentLevel < levelManager.getLevelCount()
+  
+  // Débloquer le niveau suivant
+  if (hasNextLevel) {
+    levelManager.unlockLevel(levelManager.currentLevel + 1)
+  }
   
   const overlay = document.createElement('div')
   overlay.id = 'victory-screen'
@@ -671,16 +446,9 @@ function showVictoryScreen() {
     `
   }
   
-  content.innerHTML = `
-    <h1 style="color: #00ff88; margin-bottom: 20px; font-size: 2.5em;">🎉 VICTOIRE !</h1>
-    <p style="font-size: 1.2em; margin-bottom: 30px;">Niveau 1 terminé</p>
-    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 30px;">
-      <p style="margin: 10px 0; font-size: 1.3em;">🚗 Mouvements: <strong>${scoreManager.getMoves()}</strong></p>
-      <p style="margin: 10px 0; font-size: 1.3em;">⏱️ Temps: <strong>${scoreManager.getFormattedTime()}</strong></p>
-      <p style="margin: 10px 0; font-size: 1.5em; color: #ffdd00;">⭐ Score: <strong>${scoreManager.getScore()}</strong></p>
-      ${bestScoreHTML}
-    </div>
-    <button id="restart-btn" style="
+  // Bouton niveau suivant
+  const nextLevelBtn = hasNextLevel ? `
+    <button id="next-level-btn" style="
       background: #00ff88;
       color: #1a1a2e;
       border: none;
@@ -689,8 +457,32 @@ function showVictoryScreen() {
       border-radius: 10px;
       cursor: pointer;
       font-weight: bold;
-      transition: transform 0.2s;
-    ">Rejouer</button>
+      margin-right: 15px;
+    ">▶ Niveau suivant</button>
+  ` : ''
+  
+  content.innerHTML = `
+    <h1 style="color: #00ff88; margin-bottom: 20px; font-size: 2.5em;">🎉 VICTOIRE !</h1>
+    <p style="font-size: 1.2em; margin-bottom: 30px;">${levelManager.getCurrentLevel().name} terminé !</p>
+    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+      <p style="margin: 10px 0; font-size: 1.3em;">🚗 Mouvements: <strong>${scoreManager.getMoves()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.3em;">⏱️ Temps: <strong>${scoreManager.getFormattedTime()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.5em; color: #ffdd00;">⭐ Score: <strong>${scoreManager.getScore()}</strong></p>
+      ${bestScoreHTML}
+    </div>
+    <div>
+      ${nextLevelBtn}
+      <button id="restart-btn" style="
+        background: transparent;
+        color: #00ff88;
+        border: 2px solid #00ff88;
+        padding: 15px 40px;
+        font-size: 1.2em;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: bold;
+      ">↻ Rejouer</button>
+    </div>
   `
   
   overlay.appendChild(content)
@@ -700,6 +492,14 @@ function showVictoryScreen() {
   document.getElementById('restart-btn').addEventListener('click', () => {
     location.reload()
   })
+  
+  // Bouton niveau suivant
+  if (hasNextLevel) {
+    document.getElementById('next-level-btn').addEventListener('click', () => {
+      localStorage.setItem('parkingJam_selectedLevel', levelManager.currentLevel + 1)
+      location.reload()
+    })
+  }
 }
 
 animate()

@@ -41,6 +41,24 @@ export class Vehicle {
     })
   }
   
+  hover() {
+    if (this.isSelected) return  // Ne pas hover si déjà sélectionné
+    this.model.traverse((child) => {
+      if (child.isMesh && child.material.emissive) {
+        child.material.emissive.setHex(0x444444)  // Gris clair au survol
+      }
+    })
+  }
+  
+  unhover() {
+    if (this.isSelected) return  // Ne pas unhover si sélectionné
+    this.model.traverse((child) => {
+      if (child.isMesh && child.material.emissive) {
+        child.material.emissive.setHex(0x000000)
+      }
+    })
+  }
+  
   flashCollision() {
     this.model.traverse((child) => {
       if (child.isMesh && child.material.emissive) {

@@ -11,6 +11,9 @@ export class InputController {
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
     this.selectedVehicle = null
+    this.hoveredVehicle = null  // Pour le hover highlight
+    this.debugMode = true  // Affiche les coordonnées au clic
+    this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)  // Plan Y=0
     
     this.setupEventListeners()
   }
@@ -29,10 +32,44 @@ export class InputController {
   onMouseMove(event) {
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
     this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+    
+    // Hover highlight
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+    const intersects = this.raycaster.intersectObjects(
+      this.vehicleManager.vehicles.map(v => v.model),
+      true
+    )
+    
+    // Retirer le hover du véhicule précédent
+    if (this.hoveredVehicle && this.hoveredVehicle !== this.selectedVehicle) {
+      this.hoveredVehicle.unhover()
+    }
+    
+    this.hoveredVehicle = null
+    
+    // Appliquer le hover au nouveau véhicule
+    if (intersects.length > 0) {
+      const vehicle = this.vehicleManager.getVehicleFromObject(intersects[0].object)
+      if (vehicle && vehicle !== this.selectedVehicle) {
+        this.hoveredVehicle = vehicle
+        vehicle.hover()
+      }
+    }
   }
   
   onMouseClick(event) {
     this.raycaster.setFromCamera(this.mouse, this.camera)
+    
+    // MODE DEBUG: Afficher les coordonnées du clic sur le sol
+    if (this.debugMode) {
+      const intersectPoint = new THREE.Vector3()
+      this.raycaster.ray.intersectPlane(this.groundPlane, intersectPoint)
+      if (intersectPoint) {
+        // Afficher coordonnées BRUTES précises (2 décimales)
+        console.log(`📍 Coordonnées BRUTES: x=${intersectPoint.x.toFixed(2)}, z=${intersectPoint.z.toFixed(2)}`)
+      }
+    }
+    
     const intersects = this.raycaster.intersectObjects(
       this.vehicleManager.vehicles.map(v => v.model), 
       true

@@ -3,8 +3,10 @@
 export const GRID_SIZE = 2 
 export const MOVE_SPEED = 0.1 // Vitesse d'interpolation des déplacements
 export const PARKING_BOUNDS = {
-  min: -8,
-  max: 8
+  minX: -8,
+  maxX: 6,
+  minZ: -5,
+  maxZ: 5
 }
 
 // Étages du parking

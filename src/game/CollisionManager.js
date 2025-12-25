@@ -1,5 +1,8 @@
 import { GRID_SIZE } from '../utils/constants.js'
 
+// Collision piliers désactivée - les piliers sont juste décoratifs
+const PILLAR_ZONES = []
+
 export class CollisionManager {
   constructor(vehicleManager) {
     this.vehicleManager = vehicleManager
@@ -8,6 +11,15 @@ export class CollisionManager {
   checkCollision(vehicle, targetX, targetZ) {
     const vehicles = this.vehicleManager.getAllVehicles()
     const vehicleY = vehicle.getPosition().y
+    
+    // Vérifier collision avec les zones de piliers
+    for (const zone of PILLAR_ZONES) {
+      if (targetX >= zone.minX && targetX <= zone.maxX &&
+          targetZ >= zone.minZ && targetZ <= zone.maxZ) {
+        console.log(`🚫 Collision pilier zone`)
+        return true
+      }
+    }
     
     for (const otherVehicle of vehicles) {
       if (otherVehicle === vehicle) continue
@@ -28,7 +40,7 @@ export class CollisionManager {
   }
   
   isWithinBounds(x, z, bounds) {
-    return x >= bounds.min && x <= bounds.max && 
-           z >= bounds.min && z <= bounds.max
+    return x >= bounds.minX && x <= bounds.maxX && 
+           z >= bounds.minZ && z <= bounds.maxZ
   }
 }

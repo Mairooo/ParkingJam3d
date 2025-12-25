@@ -4,8 +4,9 @@ import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
 import { COLORS, FLOORS } from '../utils/constants.js'
 
 export class ParkingFloors {
-  constructor(scene) {
+  constructor(scene, clippingPlanes = []) {
     this.scene = scene
+    this.clippingPlanes = clippingPlanes
     this.floors = []
     this.pillars = []
     this.grids = []  // Stocker les grilles pour le toggle
@@ -109,9 +110,17 @@ export class ParkingFloors {
         
         // Pour chaque mesh, créer un InstancedMesh avec 3 instances
         meshesToInstance.forEach((meshData) => {
+          // Cloner le matériau pour ajouter les clipping planes
+          let material = meshData.material
+          if (material) {
+            material = material.clone()
+            material.clippingPlanes = this.clippingPlanes
+            material.clipShadows = true
+          }
+          
           const instancedMesh = new THREE.InstancedMesh(
             meshData.geometry,
-            meshData.material,
+            material,
             floorYPositions.length // 3 instances
           )
           
@@ -207,8 +216,16 @@ export class ParkingFloors {
         normalMap: normal || null,
         aoMap: ao || null,
         roughness: 0.8,
-        metalness: 0.1
+        metalness: 0.1,
+        clippingPlanes: this.clippingPlanes,
+        clipShadows: true
       })
+    } else {
+      // Appliquer les clipping planes même sans texture
+      if (mesh.material) {
+        mesh.material.clippingPlanes = this.clippingPlanes
+        mesh.material.clipShadows = true
+      }
     }
   }
   
