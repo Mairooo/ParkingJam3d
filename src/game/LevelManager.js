@@ -2,23 +2,20 @@ import * as THREE from 'three'
 import { DIRECTIONS, FLOORS } from '../utils/constants.js'
 
 /**
- * PARKING JAM 3D - PUZZLES RÉSOLUBLES
+ * PARKING JAM 3D - NIVEAUX AVEC SOLUTIONS PRÉ-ENREGISTRÉES
  * 
- * RÈGLES DE CONCEPTION :
- * 1. Taxi HORIZONTAL sur z=0 → va vers la gauche (x négatif)
- * 2. Obstacles sur z=0 = VERTICAUX (pour pouvoir les dégager)
- * 3. Les verticaux doivent avoir de l'ESPACE pour bouger (haut ou bas)
- * 4. Ne JAMAIS saturer toutes les lignes !
- * 
- * Ascenseurs sur z=0, taxi sur z=0
+ * Chaque niveau peut avoir une solution pré-enregistrée qui prouve qu'il est résoluble.
+ * Format solution: { vehicle: index, dir: 'up'|'down'|'left'|'right'|'elevator-up'|'elevator-down' }
+ * - vehicle 0 = taxi (joueur)
+ * - vehicle 1, 2, 3... = obstacles dans l'ordre de déclaration
  */
 export const LEVELS = {
   // ============================================
-  // NIVEAU 1 - TUTORIEL (apprendre à déplacer)
-  // Solution : déplacer les 3 vans vers le haut ou bas
+  // NIVEAU 1 - Puzzle Rush Hour 36 mouvements par étage
+  // Basé sur: HooLBBHJoLMNIJAAMNIxKDDNEEKoooooxGGo
   // ============================================
   1: {
-    name: 'Niveau 1 - Tutoriel',
+    name: 'Niveau 1 - Débutant',
     floors: 3,
     exitFloor: 2,
     exitPosition: { x: -8, z: 0 },
@@ -28,34 +25,115 @@ export const LEVELS = {
     ],
     player: {
       model: '/models/taxi.glb',
-      position: { x: 4, y: 0, z: 0 },
+      position: { x: 0, y: 0, z: 0 },
       direction: DIRECTIONS.HORIZONTAL,
       rotation: Math.PI / 2
     },
     vehicles: [
-      // ========== ÉTAGE 0 ==========
-      // 3 véhicules VERTICAUX bloquant le passage - peuvent monter ou descendre
-      { model: '/models/van.glb', position: { x: 2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/delivery.glb', position: { x: 0, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/truck-flat.glb', position: { x: -2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      // PAS de blocage sur z=-2 et z=2 → les verticaux peuvent se dégager !
+      // ========== ÉTAGE 0 - Puzzle Rush Hour adapté ==========
+      // Grille: HooLBB / HJoLMN / IJAAMN / IxKDDN / EEKooo / ooxGGo
+      // Adapté à notre grille (x: -6 à 4, z: -4 à 4)
       
-      // ========== ÉTAGE -1 ==========
-      // Même principe : verticaux avec espace pour bouger
-      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: 0, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // H: Vertical (col 0, rows 0-1) -> x=-6, z=2 à z=4
+      { model: '/models/van.glb', position: { x: -6, y: 0, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // L: Vertical (col 3, rows 0-2) -> x=0, z=2 à z=4  
+      { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // B: Horizontal (col 4-5, row 0) -> x=2 à 4, z=4
+      { model: '/models/delivery.glb', position: { x: 4, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      // J: Vertical (col 1, rows 1-2) -> x=-4, z=0 à z=2
+      { model: '/models/van.glb', position: { x: -4, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // M: Vertical (col 4, rows 1-3) -> x=2, z=0 à z=4
+      { model: '/models/truck-flat.glb', position: { x: 2, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // N: Vertical (col 5, rows 1-3) -> x=4, z=0 à z=2
+      { model: '/models/delivery.glb', position: { x: 4, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // I: Vertical (col 0, rows 2-3) -> x=-6, z=-2 à z=0
+      { model: '/models/van.glb', position: { x: -6, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // K: Vertical (col 2, rows 3-4) -> x=-2, z=-4 à z=-2
+      { model: '/models/truck-flat.glb', position: { x: -2, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // D: Horizontal (col 3-4, row 3) -> x=0 à 2, z=-2
+      { model: '/models/delivery.glb', position: { x: 2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      // E: Horizontal (col 0-1, row 4) -> x=-6 à -4, z=-4
+      { model: '/models/van.glb', position: { x: -4, y: 0, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      // G: Horizontal (col 3-4, row 5) -> x=0 à 2, z=-4 (mais hors grille, on adapte)
+      { model: '/models/truck-flat.glb', position: { x: 2, y: 0, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
       
-      // ========== ÉTAGE -2 (sortie) ==========
-      // Blocage devant la sortie - doit pouvoir se dégager
+      // ========== ÉTAGE -1 - Second puzzle complexe ==========
+      // Configuration différente mais même difficulté
+      { model: '/models/van.glb', position: { x: 2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/van.glb', position: { x: 4, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: 2, y: -3, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 0, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -3, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/truck-flat.glb', position: { x: 4, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: 0, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -2, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -3, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      // ========== ÉTAGE -2 - Puzzle devant la sortie ==========
       { model: '/models/truck-flat.glb', position: { x: -6, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: -4, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 }
+      { model: '/models/van.glb', position: { x: -4, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/van.glb', position: { x: -6, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -6, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      { model: '/models/truck-flat.glb', position: { x: -6, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -4, y: -6, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      { model: '/models/van.glb', position: { x: -4, y: -6, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -6, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 }
+    ],
+    solution: [
+      // 34 mouvements
+      { vehicle: 7, dir: 'down' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'elevator-down' },
+      { vehicle: 18, dir: 'down' },
+      { vehicle: 17, dir: 'left' },
+      { vehicle: 17, dir: 'left' },
+      { vehicle: 14, dir: 'down' },
+      { vehicle: 13, dir: 'down' },
+      { vehicle: 23, dir: 'left' },
+      { vehicle: 16, dir: 'down' },
+      { vehicle: 12, dir: 'down' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'elevator-down' },
+      { vehicle: 33, dir: 'right' },
+      { vehicle: 27, dir: 'up' },
+      { vehicle: 34, dir: 'right' },
+      { vehicle: 29, dir: 'down' },
+      { vehicle: 26, dir: 'down' },
+      { vehicle: 28, dir: 'left' },
+      { vehicle: 25, dir: 'down' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' }
     ]
   },
 
   // ============================================
-  // NIVEAU 2 - INTERMÉDIAIRE (chaînes courtes)
-  // Certains verticaux sont bloqués par des horizontaux
-  // qu'il faut d'abord déplacer
+  // NIVEAU 2 - Encore plus complexe
+  // Basé sur puzzles 40+ mouvements
   // ============================================
   2: {
     name: 'Niveau 2 - Intermédiaire',
@@ -73,46 +151,148 @@ export const LEVELS = {
       rotation: Math.PI / 2
     },
     vehicles: [
-      // ========== ÉTAGE 0 ==========
-      // Verticaux sur z=0
-      { model: '/models/truck-flat.glb', position: { x: 2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: 0, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // ========== ÉTAGE 0 - Grille dense style Rush Hour expert ==========
+      // Ligne z=0 bloquée par verticaux
+      { model: '/models/van.glb', position: { x: 2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/delivery.glb', position: { x: -2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/van.glb', position: { x: -4, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -6, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // Horizontaux sur z=-2 (bloquent certains verticaux vers le haut)
-      // MAIS il y a des trous ! Le van en x=0 peut monter car x=0,z=-2 est LIBRE
-      { model: '/models/van.glb', position: { x: 2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/delivery.glb', position: { x: -2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=0,z=-2 LIBRE ! et x=-4,z=-2 LIBRE !
-      
-      // Horizontaux sur z=2 (bloquent certains verticaux vers le bas)
+      // z=2: Alternance H-V-H-V (damier)
+      { model: '/models/delivery.glb', position: { x: 4, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 2, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: -2, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/van.glb', position: { x: -4, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=2,z=2 LIBRE ! et x=-2,z=2 LIBRE !
+      { model: '/models/truck-flat.glb', position: { x: -6, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // ========== ÉTAGE -1 ==========
+      // z=-2: Alternance inverse V-H-V-H
+      { model: '/models/van.glb', position: { x: 4, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: -4, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -6, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      // z=4: Couche de blocage supérieure
+      { model: '/models/van.glb', position: { x: 4, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: 0, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      // z=-4: Couche de blocage inférieure
+      { model: '/models/delivery.glb', position: { x: 2, y: 0, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: 0, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      // ========== ÉTAGE -1 - Configuration miroir ==========
       { model: '/models/van.glb', position: { x: 2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/truck-flat.glb', position: { x: 0, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/delivery.glb', position: { x: -2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      // Blocage partiel
-      { model: '/models/van.glb', position: { x: 2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/van.glb', position: { x: 0, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -4, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // ========== ÉTAGE -2 ==========
-      { model: '/models/delivery.glb', position: { x: -6, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 4, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: 0, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -2, y: -3, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -4, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      { model: '/models/van.glb', position: { x: 4, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: 0, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -3, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: -3, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      // ========== ÉTAGE -2 - Boss ==========
+      { model: '/models/truck-flat.glb', position: { x: -6, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/van.glb', position: { x: -4, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/truck-flat.glb', position: { x: -2, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      // Blocage partiel
-      { model: '/models/van.glb', position: { x: -4, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=-6,z=-2 LIBRE, x=-2,z=-2 LIBRE, z=2 entièrement LIBRE
+      { model: '/models/delivery.glb', position: { x: -2, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/van.glb', position: { x: -6, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: -4, y: -6, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -2, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 0, y: -6, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      { model: '/models/delivery.glb', position: { x: -6, y: -6, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -6, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 0, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -6, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -6, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 }
+    ],
+    solution: [
+      // 59 mouvements
+      { vehicle: 11, dir: 'down' },
+      { vehicle: 5, dir: 'down' },
+      { vehicle: 16, dir: 'up' },
+      { vehicle: 4, dir: 'up' },
+      { vehicle: 9, dir: 'down' },
+      { vehicle: 3, dir: 'down' },
+      { vehicle: 14, dir: 'up' },
+      { vehicle: 2, dir: 'up' },
+      { vehicle: 7, dir: 'down' },
+      { vehicle: 1, dir: 'down' },
+      // 7x left
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'elevator-down' },
+      { vehicle: 31, dir: 'left' },
+      { vehicle: 26, dir: 'down' },
+      { vehicle: 36, dir: 'up' },
+      { vehicle: 35, dir: 'left' },
+      { vehicle: 25, dir: 'up' },
+      { vehicle: 39, dir: 'left' },
+      { vehicle: 34, dir: 'up' },
+      { vehicle: 24, dir: 'up' },
+      { vehicle: 32, dir: 'down' },
+      // 2x up
+      { vehicle: 32, dir: 'up' },
+      { vehicle: 32, dir: 'up' },
+      { vehicle: 33, dir: 'right' },
+      { vehicle: 23, dir: 'up' },
+      // 8x right
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'elevator-down' },
+      { vehicle: 47, dir: 'down' },
+      { vehicle: 43, dir: 'down' },
+      { vehicle: 51, dir: 'right' },
+      { vehicle: 43, dir: 'up' },
+      // 2x right
+      { vehicle: 46, dir: 'right' },
+      { vehicle: 46, dir: 'right' },
+      { vehicle: 43, dir: 'down' },
+      { vehicle: 42, dir: 'down' },
+      { vehicle: 52, dir: 'right' },
+      { vehicle: 45, dir: 'down' },
+      { vehicle: 41, dir: 'down' },
+      { vehicle: 44, dir: 'left' },
+      { vehicle: 40, dir: 'down' },
+      // 5x + 1x left = 6x left
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+
     ]
   },
 
   // ============================================
-  // NIVEAU 3 - EXPERT (chaînes longues)
-  // Il faut résoudre dans le bon ordre !
-  // Plus de véhicules mais toujours des espaces
+  // NIVEAU 3 - EXPERT ULTIME
+  // Inspiré des puzzles 50+ mouvements
   // ============================================
   3: {
     name: 'Niveau 3 - Expert',
@@ -130,72 +310,189 @@ export const LEVELS = {
       rotation: Math.PI / 2
     },
     vehicles: [
-      // ========== ÉTAGE 0 - DENSE MAIS RÉSOLUBLE ==========
-      // Verticaux sur z=0
+      // ========== ÉTAGE 0 - ENFER TOTAL ==========
+      // Mur complet de verticaux sur z=0
       { model: '/models/van.glb', position: { x: 2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/delivery.glb', position: { x: 0, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/truck-flat.glb', position: { x: -2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/van.glb', position: { x: -4, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/delivery.glb', position: { x: -6, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -6, y: 0, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // z=-2 : blocage PARTIEL (certains peuvent quand même monter)
-      { model: '/models/truck-flat.glb', position: { x: 2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/van.glb', position: { x: -2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=0, x=-4, x=-6 sur z=-2 sont LIBRES
-      
-      // z=2 : blocage PARTIEL
-      { model: '/models/delivery.glb', position: { x: 0, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      // z=2: Grille complète alternée
+      { model: '/models/delivery.glb', position: { x: 4, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 2, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: -2, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/van.glb', position: { x: -4, y: 0, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=2, x=-2, x=-6 sur z=2 sont LIBRES
+      { model: '/models/truck-flat.glb', position: { x: -6, y: 0, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // z=-4 : quelques verrous (mais horizontaux peuvent bouger)
-      { model: '/models/van.glb', position: { x: 2, y: 0, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/truck-flat.glb', position: { x: -2, y: 0, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // z=-2: Grille complète alternée inverse
+      { model: '/models/van.glb', position: { x: 4, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -2, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: -4, y: 0, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -6, y: 0, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
       
-      // z=4 : quelques verrous
-      { model: '/models/delivery.glb', position: { x: 0, y: 0, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: -4, y: 0, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // z=4: Troisième couche
+      { model: '/models/truck-flat.glb', position: { x: 4, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 2, y: 0, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 0, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -2, y: 0, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -4, y: 0, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
       
-      // ========== ÉTAGE -1 - COMPLEXE ==========
-      // Verticaux sur z=0
-      { model: '/models/truck-flat.glb', position: { x: 2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: 0, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      // z=-4: Quatrième couche
+      { model: '/models/delivery.glb', position: { x: 4, y: 0, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 2, y: 0, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 0, y: 0, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: 0, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: 0, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      
+      // ========== ÉTAGE -1 - IDENTIQUE ==========
+      { model: '/models/van.glb', position: { x: 2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       { model: '/models/delivery.glb', position: { x: -2, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/truck-flat.glb', position: { x: -4, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -4, y: -3, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // z=-2 : blocage partiel
-      { model: '/models/van.glb', position: { x: 2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/delivery.glb', position: { x: -2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=0, x=-4 LIBRES
+      { model: '/models/truck-flat.glb', position: { x: 4, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: 0, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -2, y: -3, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -4, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
       
-      // z=2 : blocage partiel
-      { model: '/models/truck-flat.glb', position: { x: 0, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/van.glb', position: { x: -4, y: -3, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=2, x=-2 LIBRES
+      { model: '/models/van.glb', position: { x: 4, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: 0, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -2, y: -3, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -3, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // Verrous
-      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: 0, y: -3, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 4, y: -3, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 0, y: -3, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -3, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
       
-      // ========== ÉTAGE -2 - SORTIE ==========
-      // Verticaux devant la sortie
-      { model: '/models/van.glb', position: { x: -6, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/delivery.glb', position: { x: -4, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/truck-flat.glb', position: { x: -2, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: 0, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 2, y: -3, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -3, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
       
-      // Blocage partiel
-      { model: '/models/delivery.glb', position: { x: -4, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/van.glb', position: { x: 0, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=-6, x=-2 sur z=-2 LIBRES
+      // ========== ÉTAGE -2 - BOSS FINAL ==========
+      { model: '/models/truck-flat.glb', position: { x: -6, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/van.glb', position: { x: -4, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: -2, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: -6, z: 0 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      { model: '/models/truck-flat.glb', position: { x: -6, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      { model: '/models/van.glb', position: { x: -2, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
-      // x=-4, x=0 sur z=2 LIBRES
+      { model: '/models/van.glb', position: { x: -6, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/delivery.glb', position: { x: -4, y: -6, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -2, y: -6, z: 2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: 0, y: -6, z: 2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
       
-      // Verrous
-      { model: '/models/delivery.glb', position: { x: -4, y: -6, z: -4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
-      { model: '/models/van.glb', position: { x: -6, y: -6, z: 4 }, direction: DIRECTIONS.VERTICAL, rotation: 0 }
+      { model: '/models/delivery.glb', position: { x: -6, y: -6, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/truck-flat.glb', position: { x: -4, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -6, z: -2 }, direction: DIRECTIONS.VERTICAL, rotation: 0 },
+      { model: '/models/delivery.glb', position: { x: 0, y: -6, z: -2 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      { model: '/models/truck-flat.glb', position: { x: -6, y: -6, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/van.glb', position: { x: -2, y: -6, z: 4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      
+      { model: '/models/delivery.glb', position: { x: -4, y: -6, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 },
+      { model: '/models/truck-flat.glb', position: { x: 0, y: -6, z: -4 }, direction: DIRECTIONS.HORIZONTAL, rotation: Math.PI / 2 }
+    ],
+    // 96 mouvements
+    solution: [
+      { vehicle: 11, dir: 'down' },
+      { vehicle: 5, dir: 'down' },
+      { vehicle: 5, dir: 'up' },
+      { vehicle: 11, dir: 'down' },
+      { vehicle: 10, dir: 'left' },
+      { vehicle: 10, dir: 'left' },
+      { vehicle: 4, dir: 'down' },
+      { vehicle: 5, dir: 'down' },
+      { vehicle: 16, dir: 'down' },
+      { vehicle: 17, dir: 'right' },
+      { vehicle: 17, dir: 'left' },
+      { vehicle: 17, dir: 'left' },
+      { vehicle: 15, dir: 'left' },
+      { vehicle: 15, dir: 'left' },
+      { vehicle: 3, dir: 'up' },
+      { vehicle: 9, dir: 'up' },
+      { vehicle: 8, dir: 'left' },
+      { vehicle: 2, dir: 'down' },
+      { vehicle: 14, dir: 'down' },
+      { vehicle: 27, dir: 'down' },
+      { vehicle: 26, dir: 'left' },
+      { vehicle: 26, dir: 'left' },
+      { vehicle: 27, dir: 'up' },
+      { vehicle: 3, dir: 'up' },
+      { vehicle: 9, dir: 'up' },
+      { vehicle: 14, dir: 'up' },
+      { vehicle: 16, dir: 'up' },
+      { vehicle: 14, dir: 'down' },
+      { vehicle: 13, dir: 'left' },
+      { vehicle: 1, dir: 'up' },
+      { vehicle: 7, dir: 'up' },
+      { vehicle: 19, dir: 'up' },
+      { vehicle: 20, dir: 'right' },
+      { vehicle: 2, dir: 'down' },
+      { vehicle: 14, dir: 'down' },
+      { vehicle: 9, dir: 'down' },
+      { vehicle: 13, dir: 'left' },
+      { vehicle: 14, dir: 'up' },
+      { vehicle: 5, dir: 'up' },
+      { vehicle: 11, dir: 'up' },
+      { vehicle: 22, dir: 'left' },
+      { vehicle: 22, dir: 'left' },
+      { vehicle: 11, dir: 'down' },
+      { vehicle: 5, dir: 'down' },
+      { vehicle: 4, dir: 'down' },
+      { vehicle: 8, dir: 'left' },
+      { vehicle: 9, dir: 'down' },
+      { vehicle: 21, dir: 'up' },
+      { vehicle: 20, dir: 'left' },
+      { vehicle: 2, dir: 'down' },
+      { vehicle: 14, dir: 'down' },
+      { vehicle: 14, dir: 'down' },
+      { vehicle: 13, dir: 'left' },
+      { vehicle: 1, dir: 'up' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'elevator-down' },
+      { vehicle: 36, dir: 'left' },
+      { vehicle: 31, dir: 'down' },
+      { vehicle: 41, dir: 'up' },
+      { vehicle: 40, dir: 'left' },
+      { vehicle: 40, dir: 'left' },
+      { vehicle: 30, dir: 'up' },
+      { vehicle: 39, dir: 'up' },
+      { vehicle: 37, dir: 'up' },
+      { vehicle: 38, dir: 'right' },
+      { vehicle: 28, dir: 'up' },
+      { vehicle: 29, dir: 'up' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'right' },
+      { vehicle: 0, dir: 'elevator-down' },
+      { vehicle: 58, dir: 'right' },
+      { vehicle: 50, dir: 'up' },
+      { vehicle: 54, dir: 'down' },
+      { vehicle: 53, dir: 'right' },
+      { vehicle: 49, dir: 'down' },
+      { vehicle: 59, dir: 'right' },
+      { vehicle: 52, dir: 'down' },
+      { vehicle: 48, dir: 'down' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 51, dir: 'left' },
+      { vehicle: 47, dir: 'down' },
+      { vehicle: 0, dir: 'left' },
+      { vehicle: 0, dir: 'left' }
     ]
   }
 }

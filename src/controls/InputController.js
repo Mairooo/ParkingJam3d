@@ -110,6 +110,10 @@ export class InputController {
         const newFloorIndex = elevator.moveVehicleToFloorBelow(this.selectedVehicle)
         if (newFloorIndex !== null) {
           console.log(`Descente vers l'étage ${newFloorIndex}`)
+          // Notifier avec direction elevator-down
+          if (this.onMove) {
+            this.onMove(this.selectedVehicle, currentPos.x, currentPos.z, currentPos.x, currentPos.z, 'elevator-down')
+          }
         }
       }
       return
@@ -122,6 +126,10 @@ export class InputController {
         const newFloorIndex = elevator.moveVehicleToFloorAbove(this.selectedVehicle)
         if (newFloorIndex !== null) {
           console.log(`Montée vers l'étage ${newFloorIndex}`)
+          // Notifier avec direction elevator-up
+          if (this.onMove) {
+            this.onMove(this.selectedVehicle, currentPos.x, currentPos.z, currentPos.x, currentPos.z, 'elevator-up')
+          }
         }
       }
       return
@@ -129,12 +137,14 @@ export class InputController {
     
     // Déplacement basé sur la direction autorisée du véhicule
     // Parking Jam : chaque véhicule ne peut aller que sur UN axe
+    let exactDirection = null
     switch(event.key) {
       case 'ArrowUp':
       case 'z':
         if (direction === DIRECTIONS.VERTICAL) {
           targetZ -= GRID_SIZE  // Vers le haut (-Z)
           moveDirection = 'vertical'
+          exactDirection = 'up'
         }
         break
       case 'ArrowDown':
@@ -142,6 +152,7 @@ export class InputController {
         if (direction === DIRECTIONS.VERTICAL) {
           targetZ += GRID_SIZE  // Vers le bas (+Z)
           moveDirection = 'vertical'
+          exactDirection = 'down'
         }
         break
       case 'ArrowLeft':
@@ -149,6 +160,7 @@ export class InputController {
         if (direction === DIRECTIONS.HORIZONTAL) {
           targetX -= GRID_SIZE  // Vers la gauche (-X)
           moveDirection = 'horizontal'
+          exactDirection = 'left'
         }
         break
       case 'ArrowRight':
@@ -156,6 +168,7 @@ export class InputController {
         if (direction === DIRECTIONS.HORIZONTAL) {
           targetX += GRID_SIZE  // Vers la droite (+X)
           moveDirection = 'horizontal'
+          exactDirection = 'right'
         }
         break
       default:
@@ -192,9 +205,9 @@ export class InputController {
     // Déplacement valide
     this.selectedVehicle.moveTo(targetX, targetZ)
     
-    // Notifier le scoring avec les positions
+    // Notifier le scoring avec les positions et la direction exacte
     if (this.onMove) {
-      this.onMove(this.selectedVehicle, fromX, fromZ, targetX, targetZ)
+      this.onMove(this.selectedVehicle, fromX, fromZ, targetX, targetZ, exactDirection)
     }
   }
 }

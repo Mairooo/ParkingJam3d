@@ -2,6 +2,9 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { Vehicle } from '../objects/Vehicle.js'
 
+// Échelle des véhicules (réduire pour éviter qu'ils se touchent)
+const VEHICLE_SCALE = 0.8
+
 export class VehicleManager {
   constructor(scene, texture) {
     this.scene = scene
@@ -16,6 +19,9 @@ export class VehicleManager {
         path,
         (gltf) => {
           const model = gltf.scene
+          
+          // Réduire la taille du véhicule
+          model.scale.set(VEHICLE_SCALE, VEHICLE_SCALE, VEHICLE_SCALE)
           
           // Appliquer la texture et les ombres
           model.traverse((child) => {

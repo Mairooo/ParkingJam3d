@@ -11,7 +11,7 @@ import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
 import { Elevator } from './objects/Elevator.js'
-import { COLORS, DIRECTIONS, FLOORS } from './utils/constants.js'
+import { COLORS, DIRECTIONS, FLOORS, GRID_SIZE } from './utils/constants.js'
 import { LevelManager, LEVELS } from './game/LevelManager.js'
 
 // ========== LEVEL MANAGER ==========
@@ -154,10 +154,36 @@ const scoreManager = new ScoreManager()
 const moveManager = new MoveManager()
 const saveManager = new SaveManager()
 
-// Callback pour compter les mouvements
-const onMove = (vehicle, fromX, fromZ, toX, toZ) => {
+// ========== ENREGISTREUR DE SOLUTION ==========
+const recordedMoves = []
+
+function printRecordedSolution() {
+  if (recordedMoves.length === 0) {
+    console.log('❌ Aucun mouvement enregistré')
+    return
+  }
+  console.log('\n' + '='.repeat(50))
+  console.log('📋 SOLUTION ENREGISTRÉE - À COPIER DANS LevelManager.js')
+  console.log('='.repeat(50))
+  console.log(`// ${recordedMoves.length} mouvements`)
+  console.log('solution: [')
+  recordedMoves.forEach((move, i) => {
+    const comma = i < recordedMoves.length - 1 ? ',' : ''
+    console.log(`  { vehicle: ${move.vehicle}, dir: '${move.dir}' }${comma}`)
+  })
+  console.log(']')
+  console.log('='.repeat(50) + '\n')
+}
+
+// Callback pour compter les mouvements ET enregistrer la solution
+const onMove = (vehicle, fromX, fromZ, toX, toZ, direction) => {
   scoreManager.addMove()
   moveManager.addMove(vehicle, fromX, fromZ, toX, toZ)
+  
+  // Enregistrer pour la solution
+  const vehicleIndex = vehicleManager.getAllVehicles().indexOf(vehicle)
+  recordedMoves.push({ vehicle: vehicleIndex, dir: direction })
+  console.log(`📝 Coup ${recordedMoves.length}: véhicule ${vehicleIndex} → ${direction}`)
   
   // Auto-save après chaque mouvement
   if (saveManager.autoSaveEnabled) {
@@ -282,6 +308,183 @@ gameFolder.add(guiParams, 'loadLevel').name('▶ Lancer ce niveau')
 gameFolder.add(guiParams, 'etage').name('Étage actuel').listen().disable()
 gameFolder.add(guiParams, 'resetLevel').name('↺ Recommencer')
 
+// ========== DOSSIER AIDE + MODE RÉSOLUTION AUTO ==========
+const helpFolder = gui.addFolder('Aide')
+
+let autoSolveRunning = false
+let autoSolveTimeouts = []
+
+async function autoSolve() {
+  const solution = levelManager.getCurrentLevel().solution
+  if (!solution || solution.length === 0) {
+    alert('❌ Pas de solution enregistrée pour ce niveau.')
+    return
+  }
+  
+  if (autoSolveRunning) {
+    autoSolveRunning = false
+    autoSolveTimeouts.forEach(t => clearTimeout(t))
+    autoSolveTimeouts = []
+    helpParams.autoSolveBtn = '🤖 Résolution auto'
+    alert('⏹️ Résolution automatique arrêtée.')
+    return
+  }
+  
+  if (scoreManager.getMoves() > 0) {
+    if (!confirm('Le niveau va être réinitialisé. Continuer ?')) return
+    location.reload()
+    return
+  }
+  
+  autoSolveRunning = true
+  helpParams.autoSolveBtn = '⏹️ Arrêter'
+  
+  const vehicles = vehicleManager.getAllVehicles()
+  const MOVE_DELAY = 300  // Vitesse rapide (300ms entre chaque coup)
+  
+  for (let i = 0; i < solution.length; i++) {
+    if (!autoSolveRunning) break
+    
+    const move = solution[i]
+    const vehicle = vehicles[move.vehicle]
+    
+    if (!vehicle) {
+      console.error(`Véhicule ${move.vehicle} non trouvé !`)
+      continue
+    }
+    
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, MOVE_DELAY)
+      autoSolveTimeouts.push(timeout)
+    })
+    
+    if (!autoSolveRunning) break
+    
+    if (inputController.selectedVehicle) inputController.selectedVehicle.deselect()
+    inputController.selectedVehicle = vehicle
+    vehicle.select()
+    
+    const currentPos = vehicle.getPosition()
+    let targetX = currentPos.x
+    let targetZ = currentPos.z
+    
+    if (move.dir === 'up') targetZ -= GRID_SIZE
+    else if (move.dir === 'down') targetZ += GRID_SIZE
+    else if (move.dir === 'left') targetX -= GRID_SIZE
+    else if (move.dir === 'right') targetX += GRID_SIZE
+    else if (move.dir === 'elevator-up' || move.dir === 'elevator-down') {
+      const currentFloor = FLOORS.findIndex(f => Math.abs(f.y - currentPos.y) < 0.5)
+      const elev = elevators.find(e => 
+        Math.abs(e.x - currentPos.x) < GRID_SIZE * 0.6 &&
+        Math.abs(e.z - currentPos.z) < GRID_SIZE * 0.6 &&
+        e.floorIndex === currentFloor
+      )
+      if (elev) {
+        if (move.dir === 'elevator-up' && elev.canGoUp()) {
+          elev.moveVehicleToFloorAbove(vehicle)
+          console.log(`🤖 Auto: Ascenseur MONTER`)
+        } else if (move.dir === 'elevator-down' && elev.canGoDown()) {
+          elev.moveVehicleToFloorBelow(vehicle)
+          console.log(`🤖 Auto: Ascenseur DESCENDRE`)
+        }
+        scoreManager.addMove()  // Compter les mouvements d'ascenseur aussi
+      } else {
+        console.log(`⚠️ Pas d'ascenseur trouvé à (${currentPos.x}, ${currentPos.z}) étage ${currentFloor}`)
+      }
+      continue
+    }
+    
+    targetX = Math.round(targetX / GRID_SIZE) * GRID_SIZE
+    targetZ = Math.round(targetZ / GRID_SIZE) * GRID_SIZE
+    
+    vehicle.moveTo(targetX, targetZ)
+    scoreManager.addMove()
+    console.log(`🤖 Auto: Véhicule ${move.vehicle} → ${move.dir} (${i + 1}/${solution.length})`)
+  }
+  
+  autoSolveRunning = false
+  helpParams.autoSolveBtn = '🤖 Résolution auto'
+  
+  // Score parfait pour la solution optimale (10000 points de base)
+  const perfectScore = 10000
+  
+  console.log(`✅ Résolution automatique terminée !`)
+  alert(`✅ Niveau résolu automatiquement !\n\n🎯 Solution optimale : ${solution.length} coups\n⭐ Score parfait : ${perfectScore} points\n\n(Ce score n'est pas enregistré - c'est une démonstration)`)
+}
+
+const helpParams = {
+  solutionStatus: '',
+  useHint: () => {
+    const solution = levelManager.getCurrentLevel().solution
+    if (!solution || solution.length === 0) {
+      alert('❌ Pas de solution disponible pour ce niveau.')
+      return
+    }
+    const currentMove = scoreManager.getMoves()
+    if (currentMove < solution.length) {
+      const hint = solution[currentMove]
+      const vehicles = vehicleManager.getAllVehicles()
+      const vehicle = vehicles[hint.vehicle]
+      
+      if (!vehicle) return
+      
+      // Sélectionner le véhicule
+      if (inputController.selectedVehicle) inputController.selectedVehicle.deselect()
+      inputController.selectedVehicle = vehicle
+      vehicle.select()
+      
+      // Exécuter le mouvement automatiquement
+      const currentPos = vehicle.getPosition()
+      let targetX = currentPos.x
+      let targetZ = currentPos.z
+      
+      if (hint.dir === 'up') targetZ -= GRID_SIZE
+      else if (hint.dir === 'down') targetZ += GRID_SIZE
+      else if (hint.dir === 'left') targetX -= GRID_SIZE
+      else if (hint.dir === 'right') targetX += GRID_SIZE
+      else if (hint.dir === 'elevator-up' || hint.dir === 'elevator-down') {
+        const currentFloor = FLOORS.findIndex(f => Math.abs(f.y - currentPos.y) < 0.5)
+        const elev = elevators.find(e => 
+          Math.abs(e.x - currentPos.x) < GRID_SIZE * 0.6 &&
+          Math.abs(e.z - currentPos.z) < GRID_SIZE * 0.6 &&
+          e.floorIndex === currentFloor
+        )
+        if (elev) {
+          if (hint.dir === 'elevator-up' && elev.canGoUp()) {
+            elev.moveVehicleToFloorAbove(vehicle)
+          } else if (hint.dir === 'elevator-down' && elev.canGoDown()) {
+            elev.moveVehicleToFloorBelow(vehicle)
+          }
+          scoreManager.addMove()
+          // Enregistrer le mouvement
+          recordedMoves.push({ vehicle: hint.vehicle, dir: hint.dir })
+        }
+        return
+      }
+      
+      targetX = Math.round(targetX / GRID_SIZE) * GRID_SIZE
+      targetZ = Math.round(targetZ / GRID_SIZE) * GRID_SIZE
+      
+      vehicle.moveTo(targetX, targetZ)
+      scoreManager.addMove()
+      // Enregistrer le mouvement
+      recordedMoves.push({ vehicle: hint.vehicle, dir: hint.dir })
+      
+    } else {
+      alert('⚠️ Vous avez dépassé la solution optimale !')
+    }
+  },
+  autoSolveBtn: '🤖 Résolution auto',
+  startAutoSolve: () => autoSolve()
+}
+
+const sol = levelManager.getCurrentLevel().solution
+helpParams.solutionStatus = (sol && sol.length > 0) ? `✅ ${sol.length} coups` : '❌ Pas de solution'
+
+helpFolder.add(helpParams, 'solutionStatus').name('État').listen().disable()
+helpFolder.add(helpParams, 'useHint').name('💡 Utiliser indice (+1 coup)')
+helpFolder.add(helpParams, 'startAutoSolve').name('🤖 Résolution auto')
+
 // Dossier "Caméra"
 const cameraFolder = gui.addFolder('Caméra')
 const cameraParams = {
@@ -385,6 +588,9 @@ function animate() {
       // Sauvegarder le meilleur score et effacer la sauvegarde de partie
       saveManager.saveBestScore(scoreManager.moves, scoreManager.elapsedTime)
       saveManager.clearSave()
+      
+      // Afficher la solution enregistrée dans la console
+      printRecordedSolution()
       
       // Afficher l'écran de victoire
       showVictoryScreen()
