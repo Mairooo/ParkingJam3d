@@ -1,6 +1,5 @@
 // ========== CONSTANTES DU JEU ==========
 
-// Fonction pour obtenir le chemin correct des assets (fonctionne en local et sur GitHub Pages)
 export const getAssetPath = (path) => {
   const base = import.meta.env.BASE_URL || '/'
   // Enlève le / initial du path si présent pour éviter les doubles slashes

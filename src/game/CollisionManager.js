@@ -16,7 +16,7 @@ export class CollisionManager {
     for (const zone of PILLAR_ZONES) {
       if (targetX >= zone.minX && targetX <= zone.maxX &&
           targetZ >= zone.minZ && targetZ <= zone.maxZ) {
-        console.log(`🚫 Collision pilier zone`)
+        console.log(`Collision pilier zone`)
         return true
       }
     }

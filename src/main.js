@@ -159,11 +159,11 @@ const recordedMoves = []
 
 function printRecordedSolution() {
   if (recordedMoves.length === 0) {
-    console.log('❌ Aucun mouvement enregistré')
+    console.log('Aucun mouvement enregistré')
     return
   }
   console.log('\n' + '='.repeat(50))
-  console.log('📋 SOLUTION ENREGISTRÉE - À COPIER DANS LevelManager.js')
+  console.log('SOLUTION ENREGISTRÉE - À COPIER DANS LevelManager.js')
   console.log('='.repeat(50))
   console.log(`// ${recordedMoves.length} mouvements`)
   console.log('solution: [')
@@ -183,7 +183,7 @@ const onMove = (vehicle, fromX, fromZ, toX, toZ, direction) => {
   // Enregistrer pour la solution
   const vehicleIndex = vehicleManager.getAllVehicles().indexOf(vehicle)
   recordedMoves.push({ vehicle: vehicleIndex, dir: direction })
-  console.log(`📝 Coup ${recordedMoves.length}: véhicule ${vehicleIndex} → ${direction}`)
+  console.log(`Coup ${recordedMoves.length}: véhicule ${vehicleIndex} → ${direction}`)
   
   // Auto-save après chaque mouvement
   if (saveManager.autoSaveEnabled) {
@@ -192,6 +192,9 @@ const onMove = (vehicle, fromX, fromZ, toX, toZ, direction) => {
 }
 
 let inputController = new InputController(activeCamera, vehicleManager, collisionManager, elevators, onMove)
+
+// Variable pour mettre à jour le GUI de la caméra
+let cameraParams = null
 
 // Fonction pour changer de caméra
 function switchCamera() {
@@ -216,6 +219,11 @@ function switchCamera() {
   
   // Mettre à jour l'InputController avec la nouvelle caméra
   inputController.updateCamera(activeCamera)
+  
+  // Mettre à jour le GUI
+  if (cameraParams) {
+    cameraParams.cameraType = isTaxiCameraActive ? 'Vue taxi' : 'Vue globale'
+  }
 }
 
 // Fonction pour mettre à jour la position de la caméra taxi
@@ -304,9 +312,9 @@ if (savedLevel) {
 // Dossier "Jeu"
 const gameFolder = gui.addFolder('Jeu')
 gameFolder.add(guiParams, 'currentLevel', { 'Niveau 1 - Facile': 1, 'Niveau 2 - Moyen': 2, 'Niveau 3 - Difficile': 3 }).name('Niveau')
-gameFolder.add(guiParams, 'loadLevel').name('▶ Lancer ce niveau')
+gameFolder.add(guiParams, 'loadLevel').name('Lancer ce niveau')
 gameFolder.add(guiParams, 'etage').name('Étage actuel').listen().disable()
-gameFolder.add(guiParams, 'resetLevel').name('↺ Recommencer')
+gameFolder.add(guiParams, 'resetLevel').name('Recommencer')
 
 // ========== DOSSIER AIDE + MODE RÉSOLUTION AUTO ==========
 const helpFolder = gui.addFolder('Aide')
@@ -317,7 +325,7 @@ let autoSolveTimeouts = []
 async function autoSolve() {
   const solution = levelManager.getCurrentLevel().solution
   if (!solution || solution.length === 0) {
-    alert('❌ Pas de solution enregistrée pour ce niveau.')
+    alert('Pas de solution enregistrée pour ce niveau.')
     return
   }
   
@@ -325,8 +333,8 @@ async function autoSolve() {
     autoSolveRunning = false
     autoSolveTimeouts.forEach(t => clearTimeout(t))
     autoSolveTimeouts = []
-    helpParams.autoSolveBtn = '🤖 Résolution auto'
-    alert('⏹️ Résolution automatique arrêtée.')
+    helpParams.autoSolveBtn = 'Résolution auto'
+    alert('Résolution automatique arrêtée.')
     return
   }
   
@@ -408,90 +416,27 @@ async function autoSolve() {
   // Score parfait pour la solution optimale (10000 points de base)
   const perfectScore = 10000
   
-  console.log(`✅ Résolution automatique terminée !`)
-  alert(`✅ Niveau résolu automatiquement !\n\n🎯 Solution optimale : ${solution.length} coups\n⭐ Score parfait : ${perfectScore} points\n\n(Ce score n'est pas enregistré - c'est une démonstration)`)
+  console.log(`Résolution automatique terminée !`)
+  alert(`Niveau résolu automatiquement !\n\n🎯 Solution optimale : ${solution.length} coups\n⭐ Score parfait : ${perfectScore} points\n\n(Ce score n'est pas enregistré - c'est une démonstration)`)
 }
 
 const helpParams = {
   solutionStatus: '',
-  useHint: () => {
-    const solution = levelManager.getCurrentLevel().solution
-    if (!solution || solution.length === 0) {
-      alert('❌ Pas de solution disponible pour ce niveau.')
-      return
-    }
-    const currentMove = scoreManager.getMoves()
-    if (currentMove < solution.length) {
-      const hint = solution[currentMove]
-      const vehicles = vehicleManager.getAllVehicles()
-      const vehicle = vehicles[hint.vehicle]
-      
-      if (!vehicle) return
-      
-      // Sélectionner le véhicule
-      if (inputController.selectedVehicle) inputController.selectedVehicle.deselect()
-      inputController.selectedVehicle = vehicle
-      vehicle.select()
-      
-      // Exécuter le mouvement automatiquement
-      const currentPos = vehicle.getPosition()
-      let targetX = currentPos.x
-      let targetZ = currentPos.z
-      
-      if (hint.dir === 'up') targetZ -= GRID_SIZE
-      else if (hint.dir === 'down') targetZ += GRID_SIZE
-      else if (hint.dir === 'left') targetX -= GRID_SIZE
-      else if (hint.dir === 'right') targetX += GRID_SIZE
-      else if (hint.dir === 'elevator-up' || hint.dir === 'elevator-down') {
-        const currentFloor = FLOORS.findIndex(f => Math.abs(f.y - currentPos.y) < 0.5)
-        const elev = elevators.find(e => 
-          Math.abs(e.x - currentPos.x) < GRID_SIZE * 0.6 &&
-          Math.abs(e.z - currentPos.z) < GRID_SIZE * 0.6 &&
-          e.floorIndex === currentFloor
-        )
-        if (elev) {
-          if (hint.dir === 'elevator-up' && elev.canGoUp()) {
-            elev.moveVehicleToFloorAbove(vehicle)
-          } else if (hint.dir === 'elevator-down' && elev.canGoDown()) {
-            elev.moveVehicleToFloorBelow(vehicle)
-          }
-          scoreManager.addMove()
-          // Enregistrer le mouvement
-          recordedMoves.push({ vehicle: hint.vehicle, dir: hint.dir })
-        }
-        return
-      }
-      
-      targetX = Math.round(targetX / GRID_SIZE) * GRID_SIZE
-      targetZ = Math.round(targetZ / GRID_SIZE) * GRID_SIZE
-      
-      vehicle.moveTo(targetX, targetZ)
-      scoreManager.addMove()
-      // Enregistrer le mouvement
-      recordedMoves.push({ vehicle: hint.vehicle, dir: hint.dir })
-      
-    } else {
-      alert('⚠️ Vous avez dépassé la solution optimale !')
-    }
-  },
-  autoSolveBtn: '🤖 Résolution auto',
   startAutoSolve: () => autoSolve()
 }
 
 const sol = levelManager.getCurrentLevel().solution
-helpParams.solutionStatus = (sol && sol.length > 0) ? `✅ ${sol.length} coups` : '❌ Pas de solution'
+helpParams.solutionStatus = (sol && sol.length > 0) ? `${sol.length} coups` : 'Pas de solution'
 
 helpFolder.add(helpParams, 'solutionStatus').name('État').listen().disable()
-helpFolder.add(helpParams, 'useHint').name('💡 Utiliser indice (+1 coup)')
-helpFolder.add(helpParams, 'startAutoSolve').name('🤖 Résolution auto')
+helpFolder.add(helpParams, 'startAutoSolve').name('Résolution auto')
 
 // Dossier "Caméra"
 const cameraFolder = gui.addFolder('Caméra')
-const cameraParams = {
+cameraParams = {
   cameraType: 'Vue globale',
   switchCamera: () => {
     switchCamera()
-    cameraParams.cameraType = isTaxiCameraActive ? 'Vue taxi' : 'Vue globale'
   }
 }
 cameraFolder.add(cameraParams, 'cameraType').name('Caméra active').listen().disable()
@@ -502,6 +447,18 @@ const displayFolder = gui.addFolder('Affichage')
 displayFolder.add(guiParams, 'showGrid').name('Afficher grille').onChange((value) => {
   parkingFloors.toggleGrids(value)
 })
+
+// Dossier "Contrôles"
+const controlsFolder = gui.addFolder('Contrôles')
+const controlsInfo = {
+  move: 'Flèches directionnelles',
+  elevator: 'Touche E',
+  camera: 'Touche C'
+}
+controlsFolder.add(controlsInfo, 'move').name('Déplacer').disable()
+controlsFolder.add(controlsInfo, 'elevator').name('Ascenseur').disable()
+controlsFolder.add(controlsInfo, 'camera').name('Changer caméra').disable()
+controlsFolder.open()
 
 // Afficher le niveau actuel dans la console
 console.log(`🎮 Niveau ${levelManager.currentLevel} chargé: ${levelManager.getCurrentLevel().name}`)
@@ -543,7 +500,7 @@ async function initVehicles() {
     )
   }
   
-  console.log(`✅ ${level.vehicles.length + 1} véhicules chargés`)
+  console.log(`${level.vehicles.length + 1} véhicules chargés`)
 }
 
 initVehicles().then(() => {
@@ -646,8 +603,8 @@ function showVictoryScreen() {
     const bestSeconds = (bestScore.time % 60).toString().padStart(2, '0')
     bestScoreHTML = `
       <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
-        <p style="margin: 5px 0; font-size: 1em; color: #aaa;">🏆 Meilleur score: <strong>${bestScore.moves}</strong> mouvements en <strong>${bestMinutes}:${bestSeconds}</strong></p>
-        ${isNewBest ? '<p style="color: #ffdd00; font-size: 1.1em; margin-top: 10px;">🎊 Nouveau record !</p>' : ''}
+        <p style="margin: 5px 0; font-size: 1em; color: #aaa;">Meilleur score: <strong>${bestScore.moves}</strong> mouvements en <strong>${bestMinutes}:${bestSeconds}</strong></p>
+        ${isNewBest ? '<p style="color: #ffdd00; font-size: 1.1em; margin-top: 10px;">Nouveau record !</p>' : ''}
       </div>
     `
   }
@@ -668,12 +625,12 @@ function showVictoryScreen() {
   ` : ''
   
   content.innerHTML = `
-    <h1 style="color: #00ff88; margin-bottom: 20px; font-size: 2.5em;">🎉 VICTOIRE !</h1>
+    <h1 style="color: #00ff88; margin-bottom: 20px; font-size: 2.5em;">🎉 Victoire !</h1>
     <p style="font-size: 1.2em; margin-bottom: 30px;">${levelManager.getCurrentLevel().name} terminé !</p>
     <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 30px;">
-      <p style="margin: 10px 0; font-size: 1.3em;">🚗 Mouvements: <strong>${scoreManager.getMoves()}</strong></p>
-      <p style="margin: 10px 0; font-size: 1.3em;">⏱️ Temps: <strong>${scoreManager.getFormattedTime()}</strong></p>
-      <p style="margin: 10px 0; font-size: 1.5em; color: #ffdd00;">⭐ Score: <strong>${scoreManager.getScore()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.3em;">Mouvements: <strong>${scoreManager.getMoves()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.3em;">Temps: <strong>${scoreManager.getFormattedTime()}</strong></p>
+      <p style="margin: 10px 0; font-size: 1.5em; color: #ffdd00;">Score: <strong>${scoreManager.getScore()}</strong></p>
       ${bestScoreHTML}
     </div>
     <div>

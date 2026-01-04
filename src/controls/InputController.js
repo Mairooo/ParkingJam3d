@@ -66,7 +66,7 @@ export class InputController {
       this.raycaster.ray.intersectPlane(this.groundPlane, intersectPoint)
       if (intersectPoint) {
         // Afficher coordonnées BRUTES précises (2 décimales)
-        console.log(`📍 Coordonnées BRUTES: x=${intersectPoint.x.toFixed(2)}, z=${intersectPoint.z.toFixed(2)}`)
+        console.log(`Coordonnées BRUTES: x=${intersectPoint.x.toFixed(2)}, z=${intersectPoint.z.toFixed(2)}`)
       }
     }
     
