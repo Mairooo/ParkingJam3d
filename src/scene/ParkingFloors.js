@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
-import { COLORS, FLOORS } from '../utils/constants.js'
+import { COLORS, FLOORS, getAssetPath } from '../utils/constants.js'
 
 export class ParkingFloors {
   constructor(scene, clippingPlanes = []) {
@@ -27,27 +27,27 @@ export class ParkingFloors {
     return new Promise((resolve) => {
       const textureFiles = {
         // Diffuse maps (couleur)
-        floorD: '/textures/FloorD.tga',
-        wallD: '/textures/WallD.tga',
-        ceilingD: '/textures/CeilingD.tga',
-        pillerD: '/textures/PillerD.tga',
-        doorD: '/textures/DoorD.tga',
-        ductD: '/textures/DuctD.tga',
-        propsD: '/textures/PropsD.tga',
-        metalD: '/textures/Metal.tga',
+        floorD: getAssetPath('/textures/FloorD.tga'),
+        wallD: getAssetPath('/textures/WallD.tga'),
+        ceilingD: getAssetPath('/textures/CeilingD.tga'),
+        pillerD: getAssetPath('/textures/PillerD.tga'),
+        doorD: getAssetPath('/textures/DoorD.tga'),
+        ductD: getAssetPath('/textures/DuctD.tga'),
+        propsD: getAssetPath('/textures/PropsD.tga'),
+        metalD: getAssetPath('/textures/Metal.tga'),
         // Normal maps
-        floorN: '/textures/FloorN.tga',
-        wallN: '/textures/WallN.tga',
-        ceilingN: '/textures/CeilingN.tga',
-        pillerN: '/textures/PillerN.tga',
-        doorN: '/textures/DoorN.tga',
-        ductN: '/textures/DuctN.tga',
-        propsN: '/textures/PropsN.tga',
+        floorN: getAssetPath('/textures/FloorN.tga'),
+        wallN: getAssetPath('/textures/WallN.tga'),
+        ceilingN: getAssetPath('/textures/CeilingN.tga'),
+        pillerN: getAssetPath('/textures/PillerN.tga'),
+        doorN: getAssetPath('/textures/DoorN.tga'),
+        ductN: getAssetPath('/textures/DuctN.tga'),
+        propsN: getAssetPath('/textures/PropsN.tga'),
         // AO maps
-        floorAO: '/textures/FloorAo.tga',
-        wallAO: '/textures/WallAO.tga',
-        ceilingAO: '/textures/CeilingAO.tga',
-        pillerAO: '/textures/PillerAO.tga',
+        floorAO: getAssetPath('/textures/FloorAo.tga'),
+        wallAO: getAssetPath('/textures/WallAO.tga'),
+        ceilingAO: getAssetPath('/textures/CeilingAO.tga'),
+        pillerAO: getAssetPath('/textures/PillerAO.tga'),
       }
       
       let loaded = 0
@@ -81,7 +81,7 @@ export class ParkingFloors {
     const floorYPositions = [0, -3.0, -6.0]
     
     this.loader.load(
-      '/models/parking.glb',
+      getAssetPath('/models/parking.glb'),
       (gltf) => {
         const originalParking = gltf.scene
         

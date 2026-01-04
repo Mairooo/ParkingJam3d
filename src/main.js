@@ -11,7 +11,7 @@ import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
 import { Elevator } from './objects/Elevator.js'
-import { COLORS, DIRECTIONS, FLOORS, GRID_SIZE } from './utils/constants.js'
+import { COLORS, DIRECTIONS, FLOORS, GRID_SIZE, getAssetPath } from './utils/constants.js'
 import { LevelManager, LEVELS } from './game/LevelManager.js'
 
 // ========== LEVEL MANAGER ==========
@@ -143,7 +143,7 @@ let hasWon = false
 
 // ========== CHARGEMENT VÉHICULES ==========
 const textureLoader = new THREE.TextureLoader()
-const carTexture = textureLoader.load('/textures/colormap.png')
+const carTexture = textureLoader.load(getAssetPath('/textures/colormap.png'))
 carTexture.flipY = false
 carTexture.colorSpace = THREE.SRGBColorSpace
 

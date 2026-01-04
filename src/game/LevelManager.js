@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { DIRECTIONS, FLOORS } from '../utils/constants.js'
+import { DIRECTIONS, FLOORS, getAssetPath } from '../utils/constants.js'
 
 /**
  * PARKING JAM 3D - NIVEAUX AVEC SOLUTIONS PRÉ-ENREGISTRÉES

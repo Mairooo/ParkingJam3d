@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { Vehicle } from '../objects/Vehicle.js'
+import { getAssetPath } from '../utils/constants.js'
 
 // Échelle des véhicules (réduire pour éviter qu'ils se touchent)
 const VEHICLE_SCALE = 0.8
@@ -14,9 +15,11 @@ export class VehicleManager {
   }
   
   async loadVehicle(path, position, direction, color, rotation = 0) {
+    // Convertir le chemin pour GitHub Pages
+    const assetPath = getAssetPath(path)
     return new Promise((resolve, reject) => {
       this.loader.load(
-        path,
+        assetPath,
         (gltf) => {
           const model = gltf.scene
           
