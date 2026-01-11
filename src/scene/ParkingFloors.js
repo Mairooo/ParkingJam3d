@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
 import { COLORS, FLOORS, getAssetPath } from '../utils/constants.js'
 
 export class ParkingFloors {
@@ -13,7 +12,7 @@ export class ParkingFloors {
     this.parkingModel = null
     this.parkingInstances = [] // Stocker les instances pour optimisation
     this.loader = new GLTFLoader()
-    this.tgaLoader = new TGALoader()
+    this.textureLoader = new THREE.TextureLoader()
     this.textures = {}
     
     this.loadTextures().then(() => {
@@ -27,34 +26,34 @@ export class ParkingFloors {
     return new Promise((resolve) => {
       const textureFiles = {
         // Diffuse maps (couleur)
-        floorD: getAssetPath('/textures/FloorD.tga'),
-        wallD: getAssetPath('/textures/WallD.tga'),
-        ceilingD: getAssetPath('/textures/CeilingD.tga'),
-        pillerD: getAssetPath('/textures/PillerD.tga'),
-        doorD: getAssetPath('/textures/DoorD.tga'),
-        ductD: getAssetPath('/textures/DuctD.tga'),
-        propsD: getAssetPath('/textures/PropsD.tga'),
-        metalD: getAssetPath('/textures/Metal.tga'),
+        floorD: getAssetPath('/textures/FloorD.jpg'),
+        wallD: getAssetPath('/textures/WallD.jpg'),
+        ceilingD: getAssetPath('/textures/CeilingD.jpg'),
+        pillerD: getAssetPath('/textures/PillerD.jpg'),
+        doorD: getAssetPath('/textures/DoorD.jpg'),
+        ductD: getAssetPath('/textures/DuctD.jpg'),
+        propsD: getAssetPath('/textures/PropsD.jpg'),
+        metalD: getAssetPath('/textures/Metal.jpg'),
         // Normal maps
-        floorN: getAssetPath('/textures/FloorN.tga'),
-        wallN: getAssetPath('/textures/WallN.tga'),
-        ceilingN: getAssetPath('/textures/CeilingN.tga'),
-        pillerN: getAssetPath('/textures/PillerN.tga'),
-        doorN: getAssetPath('/textures/DoorN.tga'),
-        ductN: getAssetPath('/textures/DuctN.tga'),
-        propsN: getAssetPath('/textures/PropsN.tga'),
+        floorN: getAssetPath('/textures/FloorN.jpg'),
+        wallN: getAssetPath('/textures/WallN.jpg'),
+        ceilingN: getAssetPath('/textures/CeilingN.jpg'),
+        pillerN: getAssetPath('/textures/PillerN.jpg'),
+        doorN: getAssetPath('/textures/DoorN.jpg'),
+        ductN: getAssetPath('/textures/DuctN.jpg'),
+        propsN: getAssetPath('/textures/PropsN.jpg'),
         // AO maps
-        floorAO: getAssetPath('/textures/FloorAo.tga'),
-        wallAO: getAssetPath('/textures/WallAO.tga'),
-        ceilingAO: getAssetPath('/textures/CeilingAO.tga'),
-        pillerAO: getAssetPath('/textures/PillerAO.tga'),
+        floorAO: getAssetPath('/textures/FloorAo.jpg'),
+        wallAO: getAssetPath('/textures/WallAO.jpg'),
+        ceilingAO: getAssetPath('/textures/CeilingAO.jpg'),
+        pillerAO: getAssetPath('/textures/PillerAO.jpg'),
       }
       
       let loaded = 0
       const total = Object.keys(textureFiles).length
       
       Object.entries(textureFiles).forEach(([name, path]) => {
-        this.tgaLoader.load(
+        this.textureLoader.load(
           path,
           (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace
@@ -62,7 +61,6 @@ export class ParkingFloors {
             texture.wrapT = THREE.RepeatWrapping
             this.textures[name] = texture
             loaded++
-            console.log(`Loaded texture: ${name} (${loaded}/${total})`)
             if (loaded >= total) resolve()
           },
           undefined,
