@@ -41,6 +41,9 @@ export class VehicleManager {
           // Appliquer la rotation (orientation du véhicule)
           model.rotation.y = rotation
           
+          // Remonter légèrement le véhicule pour éviter que les roues traversent le sol
+          position.y += 0.05
+          
           // Créer l'instance Vehicle
           const vehicle = new Vehicle(model, position, direction, color)
           this.vehicles.push(vehicle)

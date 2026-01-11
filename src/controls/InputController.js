@@ -2,12 +2,14 @@ import * as THREE from 'three'
 import { GRID_SIZE, PARKING_BOUNDS, DIRECTIONS } from '../utils/constants.js'
 
 export class InputController {
-  constructor(camera, vehicleManager, collisionManager, elevators = [], onMove = null) {
+  constructor(camera, vehicleManager, collisionManager, elevators = [], onMove = null, directionHelper = null, scene = null) {
     this.camera = camera
     this.vehicleManager = vehicleManager
     this.collisionManager = collisionManager
     this.elevators = elevators
     this.onMove = onMove  // Callback quand un mouvement est effectué
+    this.directionHelper = directionHelper  // Helper visuel pour les directions
+    this.scene = scene  // Référence à la scène pour ajouter le helper
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
     this.selectedVehicle = null
@@ -78,6 +80,10 @@ export class InputController {
     // Désélectionner le véhicule précédent
     if (this.selectedVehicle) {
       this.selectedVehicle.deselect()
+      // Cacher le helper de direction
+      if (this.directionHelper) {
+        this.directionHelper.hide()
+      }
     }
     
     this.selectedVehicle = null
@@ -88,7 +94,10 @@ export class InputController {
       if (vehicle) {
         this.selectedVehicle = vehicle
         vehicle.select()
-        // Vehicule selectionne
+        // Afficher le helper de direction
+        if (this.directionHelper && this.scene) {
+          this.directionHelper.show(vehicle, this.scene, this.collisionManager)
+        }
       }
     }
   }
@@ -102,7 +111,7 @@ export class InputController {
     let targetZ = currentPos.z
     let moveDirection = null
     
-    // Gestion ascenseur
+    // Gestion ascenseur avec E uniquement
     if (event.key === 'e' || event.key === 'E') {
       // Descendre d'un étage
       const elevator = this.elevators.find(e => e.isVehicleOnElevator(currentPos))
@@ -119,54 +128,105 @@ export class InputController {
       return
     }
     
-    if (event.key === 'q' || event.key === 'Q') {
-      // Monter d'un étage
-      const elevator = this.elevators.find(e => e.isVehicleOnElevator(currentPos))
-      if (elevator && elevator.canGoUp()) {
-        const newFloorIndex = elevator.moveVehicleToFloorAbove(this.selectedVehicle)
-        if (newFloorIndex !== null) {
-          console.log(`Montée vers l'étage ${newFloorIndex}`)
-          // Notifier avec direction elevator-up
-          if (this.onMove) {
-            this.onMove(this.selectedVehicle, currentPos.x, currentPos.z, currentPos.x, currentPos.z, 'elevator-up')
+    // Déplacement basé sur la direction autorisée du véhicule
+    // Q = avancer (forward), D = reculer (backward)
+    // Pour véhicule horizontal : Q = gauche, D = droite
+    // Pour véhicule vertical : Q = haut, D = bas
+    let exactDirection = null
+    
+    // Vérifier si on est en mode tutoriel et bloquer les mauvaises touches
+    const tutorialStep = window.tutorialStep
+    const TUTORIAL_STEPS = window.TUTORIAL_STEPS
+    
+    switch(event.key.toLowerCase()) {
+      case 'q':
+        // Q = avancer (forward)
+        // Tutoriel : bloquer si on n'attend pas Q (avancer)
+        if (TUTORIAL_STEPS && tutorialStep !== null && tutorialStep !== TUTORIAL_STEPS.DONE && tutorialStep !== TUTORIAL_STEPS.GOAL) {
+          if (tutorialStep !== TUTORIAL_STEPS.FORWARD) {
+            this.selectedVehicle.flashCollision()
+            return
           }
         }
-      }
-      return
-    }
-    
-    // Déplacement basé sur la direction autorisée du véhicule
-    // Parking Jam : chaque véhicule ne peut aller que sur UN axe
-    let exactDirection = null
-    switch(event.key) {
-      case 'ArrowUp':
-      case 'z':
-        if (direction === DIRECTIONS.VERTICAL) {
-          targetZ -= GRID_SIZE  // Vers le haut (-Z)
+        
+        if (direction === DIRECTIONS.HORIZONTAL) {
+          targetX -= GRID_SIZE  // Vers la gauche (-X) = forward pour horizontal
+          moveDirection = 'horizontal'
+          exactDirection = 'left'
+        } else if (direction === DIRECTIONS.VERTICAL) {
+          targetZ -= GRID_SIZE  // Vers le haut (-Z) = forward pour vertical
           moveDirection = 'vertical'
           exactDirection = 'up'
         }
         break
-      case 'ArrowDown':
-      case 's':
-        if (direction === DIRECTIONS.VERTICAL) {
-          targetZ += GRID_SIZE  // Vers le bas (+Z)
+        
+      case 'd':
+        // D = reculer (backward)
+        // Tutoriel : bloquer si on n'attend pas D (reculer)
+        if (TUTORIAL_STEPS && tutorialStep !== null && tutorialStep !== TUTORIAL_STEPS.DONE && tutorialStep !== TUTORIAL_STEPS.GOAL) {
+          if (tutorialStep !== TUTORIAL_STEPS.BACKWARD) {
+            this.selectedVehicle.flashCollision()
+            return
+          }
+        }
+        
+        if (direction === DIRECTIONS.HORIZONTAL) {
+          targetX += GRID_SIZE  // Vers la droite (+X) = backward pour horizontal
+          moveDirection = 'horizontal'
+          exactDirection = 'right'
+        } else if (direction === DIRECTIONS.VERTICAL) {
+          targetZ += GRID_SIZE  // Vers le bas (+Z) = backward pour vertical
           moveDirection = 'vertical'
           exactDirection = 'down'
         }
         break
-      case 'ArrowLeft':
-      case 'a':
+        
+      case 'arrowup':
+      case 'z':
+        // Tutoriel : bloquer les flèches/ZQSD pendant les étapes guidées
+        if (TUTORIAL_STEPS && tutorialStep !== null && tutorialStep !== TUTORIAL_STEPS.DONE && tutorialStep !== TUTORIAL_STEPS.GOAL) {
+          this.selectedVehicle.flashCollision()
+          return
+        }
+        if (direction === DIRECTIONS.VERTICAL) {
+          targetZ -= GRID_SIZE
+          moveDirection = 'vertical'
+          exactDirection = 'up'
+        }
+        break
+      case 'arrowdown':
+      case 's':
+        // Tutoriel : bloquer les flèches/ZQSD pendant les étapes guidées
+        if (TUTORIAL_STEPS && tutorialStep !== null && tutorialStep !== TUTORIAL_STEPS.DONE && tutorialStep !== TUTORIAL_STEPS.GOAL) {
+          this.selectedVehicle.flashCollision()
+          return
+        }
+        if (direction === DIRECTIONS.VERTICAL) {
+          targetZ += GRID_SIZE
+          moveDirection = 'vertical'
+          exactDirection = 'down'
+        }
+        break
+      case 'arrowleft':
+        // Tutoriel : bloquer les flèches pendant les étapes guidées
+        if (TUTORIAL_STEPS && tutorialStep !== null && tutorialStep !== TUTORIAL_STEPS.DONE && tutorialStep !== TUTORIAL_STEPS.GOAL) {
+          this.selectedVehicle.flashCollision()
+          return
+        }
         if (direction === DIRECTIONS.HORIZONTAL) {
-          targetX -= GRID_SIZE  // Vers la gauche (-X)
+          targetX -= GRID_SIZE
           moveDirection = 'horizontal'
           exactDirection = 'left'
         }
         break
-      case 'ArrowRight':
-      case 'd':
+      case 'arrowright':
+        // Tutoriel : bloquer les flèches pendant les étapes guidées
+        if (TUTORIAL_STEPS && tutorialStep !== null && tutorialStep !== TUTORIAL_STEPS.DONE && tutorialStep !== TUTORIAL_STEPS.GOAL) {
+          this.selectedVehicle.flashCollision()
+          return
+        }
         if (direction === DIRECTIONS.HORIZONTAL) {
-          targetX += GRID_SIZE  // Vers la droite (+X)
+          targetX += GRID_SIZE
           moveDirection = 'horizontal'
           exactDirection = 'right'
         }
@@ -205,9 +265,25 @@ export class InputController {
     // Déplacement valide
     this.selectedVehicle.moveTo(targetX, targetZ)
     
+    // Mettre à jour la position du helper de direction
+    if (this.directionHelper) {
+      this.directionHelper.updatePosition(this.selectedVehicle)
+    }
+    
     // Notifier le scoring avec les positions et la direction exacte
     if (this.onMove) {
       this.onMove(this.selectedVehicle, fromX, fromZ, targetX, targetZ, exactDirection)
+    }
+  }
+  
+  /**
+   * Met à jour le helper de direction (appelé dans la boucle d'animation)
+   * @param {number} time - Temps écoulé pour l'animation de pulsation
+   */
+  update(time) {
+    if (this.directionHelper && this.selectedVehicle) {
+      this.directionHelper.updatePosition(this.selectedVehicle)
+      this.directionHelper.pulse(time)
     }
   }
 }

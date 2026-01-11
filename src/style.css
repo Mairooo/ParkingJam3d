@@ -14,3 +14,39 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+
+#tutorial-text {
+  position: fixed;
+  top: 30%;
+  left: 15%;
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.6;
+  text-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.25),
+    0 3px 6px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  pointer-events: none;
+  animation: float-text 2.5s ease-in-out infinite;
+  letter-spacing: 0.5px;
+  transition: opacity 0.4s ease-out;
+}
+
+@keyframes float-text {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+#tutorial-text.hidden {
+  opacity: 0;
+  pointer-events: none;
+}

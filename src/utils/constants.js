@@ -25,7 +25,7 @@ export const FLOORS = [
 ]
 
 export const COLORS = {
-  background: 0x1a1a2e,
+  background: '#000000',
   floor: 0x2d2d44,
   floorLevel1: 0x3d3d54,
   floorLevel2: 0x4d4d64,

@@ -17,24 +17,26 @@ export class ScoreManager {
       position: fixed;
       top: 20px;
       left: 20px;
-      background: rgba(0, 0, 0, 0.7);
       color: white;
       padding: 15px 25px;
-      border-radius: 10px;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      font-size: 16px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
       z-index: 100;
       min-width: 150px;
+      text-shadow: 
+        2px 2px 0 rgba(0, 0, 0, 0.25),
+        0 3px 6px rgba(0, 0, 0, 0.15);
     `
     
     // Affichage mouvements
     this.movesDisplay = document.createElement('div')
-    this.movesDisplay.innerHTML = 'Mouvements: <span id="moves-count">0</span>'
+    this.movesDisplay.innerHTML = 'MOUVEMENTS: <span id="moves-count">0</span>'
     this.movesDisplay.style.marginBottom = '8px'
     
     // Affichage timer
     this.timerDisplay = document.createElement('div')
-    this.timerDisplay.innerHTML = 'Temps: <span id="timer">00:00</span>'
+    this.timerDisplay.innerHTML = 'TEMPS: <span id="timer">00:00</span>'
     
     this.container.appendChild(this.movesDisplay)
     this.container.appendChild(this.timerDisplay)

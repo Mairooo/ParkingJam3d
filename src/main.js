@@ -11,6 +11,7 @@ import { InputController } from './controls/InputController.js'
 import { ParkingFloors } from './scene/ParkingFloors.js'
 import { ExitZone } from './objects/ExitZone.js'
 import { Elevator } from './objects/Elevator.js'
+import { DirectionHelper } from './objects/DirectionHelper.js'
 import { COLORS, DIRECTIONS, FLOORS, GRID_SIZE, getAssetPath } from './utils/constants.js'
 import { LevelManager, LEVELS } from './game/LevelManager.js'
 
@@ -30,8 +31,8 @@ const globalCamera = new THREE.PerspectiveCamera(
   0.1,
   1000
 )
-globalCamera.position.set(15, 8, 15)
-globalCamera.lookAt(0, -3.2, 0) // Regarder vers le centre des étages
+globalCamera.position.set(12, 12, 12)
+globalCamera.lookAt(-2, -3.0, 0) // Regarder vers le centre des étages
 
 // Caméra proche du taxi (suit le joueur)
 const taxiCamera = new THREE.PerspectiveCamera(
@@ -42,9 +43,30 @@ const taxiCamera = new THREE.PerspectiveCamera(
 )
 taxiCamera.position.set(4, 2, 4) // Position initiale près du taxi (plus basse)
 
-// Caméra active
-let activeCamera = globalCamera
-let isTaxiCameraActive = false
+// Caméra active (on démarre en vue taxi)
+let activeCamera = taxiCamera
+let isTaxiCameraActive = true
+let taxiCameraInverted = false // false = derrière le taxi au départ
+
+// Fonction pour inverser la caméra taxi
+function flipTaxiCamera() {
+  taxiCameraInverted = !taxiCameraInverted
+  console.log('taxiCameraInverted =', taxiCameraInverted)
+  
+  // Repositionner immédiatement la caméra
+  if (playerVehicle && isTaxiCameraActive) {
+    const pos = playerVehicle.getPosition()
+    const distance = 6
+    const height = 1.8
+    const sign = taxiCameraInverted ? -1 : 1
+    
+    const cameraX = pos.x + sign * distance * 0.7
+    const cameraZ = pos.z - sign * distance * 0.5
+    
+    taxiCamera.position.set(cameraX, pos.y + height, cameraZ)
+    taxiControls.target.set(pos.x, pos.y + 0.5, pos.z)
+  }
+}
 
 // ========== CLIPPING PLANES (pour découper le parking) ==========
 // Zone de jeu : environ x=-10 à x=6, z=-6 à z=6
@@ -87,10 +109,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 const globalControls = new OrbitControls(globalCamera, canvas)
 globalControls.enableDamping = true
 globalControls.dampingFactor = 0.05
-globalControls.maxPolarAngle = Math.PI / 2.2
-globalControls.minDistance = 8
-globalControls.maxDistance = 40
-globalControls.target.set(0, -3.2, 0) // Cible au centre des étages
+globalControls.maxPolarAngle = Math.PI / 1.8  // Permet de voir plus "de dessus"
+globalControls.minPolarAngle = 0.2  // Empêche de passer sous le parking
+globalControls.minDistance = 5   // Permet de zoomer plus près
+globalControls.maxDistance = 45
+globalControls.target.set(-2, -3.0, 0) // Cible au centre des étages
 
 // Contrôles pour la caméra taxi
 const taxiControls = new OrbitControls(taxiCamera, canvas)
@@ -99,10 +122,11 @@ taxiControls.dampingFactor = 0.05
 taxiControls.maxPolarAngle = Math.PI / 2.5
 taxiControls.minDistance = 4
 taxiControls.maxDistance = 15
-taxiControls.enabled = false // Désactivé par défaut
+taxiControls.enabled = true // Activé par défaut (on démarre en vue taxi)
+globalControls.enabled = false // Désactivé au démarrage
 
 // Référence aux contrôles actifs
-let activeControls = globalControls
+let activeControls = taxiControls
 
 // ========== LIGHTS ==========
 // Lumière ambiante
@@ -154,6 +178,9 @@ const scoreManager = new ScoreManager()
 const moveManager = new MoveManager()
 const saveManager = new SaveManager()
 
+// Helper de direction pour visualiser les mouvements possibles
+const directionHelper = new DirectionHelper()
+
 // ========== ENREGISTREUR DE SOLUTION ==========
 const recordedMoves = []
 
@@ -185,13 +212,138 @@ const onMove = (vehicle, fromX, fromZ, toX, toZ, direction) => {
   recordedMoves.push({ vehicle: vehicleIndex, dir: direction })
   console.log(`Coup ${recordedMoves.length}: véhicule ${vehicleIndex} → ${direction}`)
   
-  // Auto-save après chaque mouvement
-  if (saveManager.autoSaveEnabled) {
+  // Inverser la caméra quand on utilise l'ascenseur
+  if (direction === 'elevator-down' || direction === 'elevator-up') {
+    console.log('FLIP CAMERA!')
+    flipTaxiCamera()
+  }
+  
+  // Avancer le tutoriel si c'est le taxi qui bouge
+  if (vehicle === playerVehicle) {
+    // Q = forward = left ou up
+    if (tutorialStep === TUTORIAL_STEPS.FORWARD && (direction === 'left' || direction === 'up')) {
+      advanceTutorial()
+    }
+    // D = backward = right ou down
+    else if (tutorialStep === TUTORIAL_STEPS.BACKWARD && (direction === 'right' || direction === 'down')) {
+      advanceTutorial()
+    }
+  }
+  
+  // Auto-save après chaque mouvement (seulement si tuto terminé)
+  if (saveManager.autoSaveEnabled && tutorialStep === TUTORIAL_STEPS.DONE) {
     saveManager.saveGameState(vehicleManager, scoreManager, moveManager.history)
+    const mins = Math.floor(scoreManager.elapsedTime / 60).toString().padStart(2, '0')
+    const secs = (scoreManager.elapsedTime % 60).toString().padStart(2, '0')
+    saveParams.status = `${scoreManager.moves} coups - ${mins}:${secs}`
   }
 }
 
-let inputController = new InputController(activeCamera, vehicleManager, collisionManager, elevators, onMove)
+let inputController = new InputController(activeCamera, vehicleManager, collisionManager, elevators, onMove, directionHelper, scene)
+
+// ========== TUTORIEL ==========
+const TUTORIAL_STEPS = {
+  CLICK_TAXI: 0,
+  FORWARD: 1,
+  BACKWARD: 2,
+  CLICK_OTHERS: 3,
+  GOAL: 4,
+  DONE: 5
+}
+
+// Vérifier si on doit sauter le tutoriel (déjà fait ou sauvegarde existante)
+const tutorialDone = localStorage.getItem('parkingJam_tutorialDone') === 'true'
+const hasSavedGame = saveManager.load()?.moves > 0
+const skipTutorial = tutorialDone || hasSavedGame || localStorage.getItem('parkingJam_skipTutorial') === 'true'
+if (localStorage.getItem('parkingJam_skipTutorial') === 'true') {
+  localStorage.removeItem('parkingJam_skipTutorial')
+}
+
+let tutorialStep = skipTutorial ? TUTORIAL_STEPS.DONE : TUTORIAL_STEPS.CLICK_TAXI
+const tutorialText = document.getElementById('tutorial-text')
+
+// Cacher le tutoriel si on le saute
+if (skipTutorial && tutorialText) {
+  tutorialText.classList.add('hidden')
+  tutorialText.remove()
+}
+
+// Exposer l'état du tutoriel pour l'InputController
+window.tutorialStep = tutorialStep
+window.TUTORIAL_STEPS = TUTORIAL_STEPS
+
+function updateTutorialText(text) {
+  if (tutorialText) {
+    tutorialText.innerHTML = text
+  }
+}
+
+function advanceTutorial() {
+  tutorialStep++
+  window.tutorialStep = tutorialStep
+  
+  switch (tutorialStep) {
+    case TUTORIAL_STEPS.FORWARD:
+      updateTutorialText('Appuie sur Q<br>pour avancer')
+      break
+    case TUTORIAL_STEPS.BACKWARD:
+      updateTutorialText('Appuie sur D<br>pour reculer')
+      break
+    case TUTORIAL_STEPS.CLICK_OTHERS:
+      updateTutorialText('Clique sur les autres<br>véhicules pour<br>les déplacer')
+      // Passer automatiquement après 3.5 secondes
+      setTimeout(() => {
+        if (tutorialStep === TUTORIAL_STEPS.CLICK_OTHERS) {
+          advanceTutorial()
+        }
+      }, 3500)
+      break
+    case TUTORIAL_STEPS.GOAL:
+      updateTutorialText('Trouve la sortie<br>avec les ascenseurs !')
+      // Passer automatiquement après 3 secondes
+      setTimeout(() => {
+        if (tutorialStep === TUTORIAL_STEPS.GOAL) {
+          advanceTutorial()
+        }
+      }, 3500)
+      break
+    case TUTORIAL_STEPS.DONE:
+      if (tutorialText) {
+        tutorialText.classList.add('hidden')
+        setTimeout(() => tutorialText.remove(), 500)
+      }
+      // Marquer le tuto comme fait définitivement
+      localStorage.setItem('parkingJam_tutorialDone', 'true')
+      // Lancer le niveau 1 sans tutoriel après un court délai
+      setTimeout(() => {
+        localStorage.setItem('parkingJam_selectedLevel', '1')
+        location.reload()
+      }, 1000)
+      break
+  }
+}
+
+// Gérer le clic sur le taxi pour le tutoriel
+canvas.addEventListener('click', () => {
+  // Étape 1 : cliquer sur le taxi
+  if (tutorialStep === TUTORIAL_STEPS.CLICK_TAXI) {
+    setTimeout(() => {
+      // Vérifier si le taxi a été sélectionné
+      if (inputController.selectedVehicle && inputController.selectedVehicle === playerVehicle) {
+        advanceTutorial()
+      }
+    }, 10)
+  }
+  // Étape CLICK_OTHERS : cliquer sur un autre véhicule
+  else if (tutorialStep === TUTORIAL_STEPS.CLICK_OTHERS) {
+    setTimeout(() => {
+      // Vérifier si un autre véhicule (pas le taxi) a été sélectionné
+      if (inputController.selectedVehicle && inputController.selectedVehicle !== playerVehicle) {
+        advanceTutorial()
+      }
+    }, 10)
+  }
+})
 
 // Variable pour mettre à jour le GUI de la caméra
 let cameraParams = null
@@ -233,24 +385,16 @@ function updateTaxiCamera() {
   const pos = playerVehicle.getPosition()
   
   // Distance et hauteur de la caméra
-  // Hauteur réduite pour rester sous le plafond (étages = 4 de haut)
   const distance = 6
   const height = 1.8
   
-  // Positionner la caméra en fonction de la position du taxi sur l'étage
-  // Si le taxi est à droite (x > 0), la caméra vient de la droite pour voir vers la gauche
-  // Si le taxi est à gauche (x < 0), la caméra vient de la gauche pour voir vers la droite
+  // Positionner la caméra devant ou derrière le taxi selon l'état
   let cameraX, cameraZ
+  const sign = taxiCameraInverted ? -1 : 1
   
-  if (pos.x > 0) {
-    // Taxi à droite, caméra derrière-droite, regarde vers la gauche
-    cameraX = pos.x + distance * 0.7
-    cameraZ = pos.z + distance * 0.5
-  } else {
-    // Taxi à gauche, caméra derrière-gauche, regarde vers la droite
-    cameraX = pos.x - distance * 0.7
-    cameraZ = pos.z + distance * 0.5
-  }
+  // Caméra en diagonale inversée (Z inversé)
+  cameraX = pos.x + sign * distance * 0.7
+  cameraZ = pos.z - sign * distance * 0.5
   
   const targetPosition = new THREE.Vector3(cameraX, pos.y + height, cameraZ)
   
@@ -390,14 +534,14 @@ async function autoSolve() {
       if (elev) {
         if (move.dir === 'elevator-up' && elev.canGoUp()) {
           elev.moveVehicleToFloorAbove(vehicle)
-          console.log(`🤖 Auto: Ascenseur MONTER`)
+          console.log(`Auto: Ascenseur MONTER`)
         } else if (move.dir === 'elevator-down' && elev.canGoDown()) {
           elev.moveVehicleToFloorBelow(vehicle)
-          console.log(`🤖 Auto: Ascenseur DESCENDRE`)
+          console.log(`Auto: Ascenseur DESCENDRE`)
         }
         scoreManager.addMove()  // Compter les mouvements d'ascenseur aussi
       } else {
-        console.log(`⚠️ Pas d'ascenseur trouvé à (${currentPos.x}, ${currentPos.z}) étage ${currentFloor}`)
+        console.log(`Pas d'ascenseur trouvé à (${currentPos.x}, ${currentPos.z}) étage ${currentFloor}`)
       }
       continue
     }
@@ -407,7 +551,7 @@ async function autoSolve() {
     
     vehicle.moveTo(targetX, targetZ)
     scoreManager.addMove()
-    console.log(`🤖 Auto: Véhicule ${move.vehicle} → ${move.dir} (${i + 1}/${solution.length})`)
+    console.log(`Auto: Véhicule ${move.vehicle} -> ${move.dir} (${i + 1}/${solution.length})`)
   }
   
   autoSolveRunning = false
@@ -416,8 +560,7 @@ async function autoSolve() {
   // Score parfait pour la solution optimale (10000 points de base)
   const perfectScore = 10000
   
-  console.log(`Résolution automatique terminée !`)
-  alert(`Niveau résolu automatiquement !\n\n🎯 Solution optimale : ${solution.length} coups\n⭐ Score parfait : ${perfectScore} points\n\n(Ce score n'est pas enregistré - c'est une démonstration)`)
+  console.log(`Résolution automatique terminée ! Solution optimale : ${solution.length} coups, Score parfait : ${perfectScore} points`)
 }
 
 const helpParams = {
@@ -434,7 +577,7 @@ helpFolder.add(helpParams, 'startAutoSolve').name('Résolution auto')
 // Dossier "Caméra"
 const cameraFolder = gui.addFolder('Caméra')
 cameraParams = {
-  cameraType: 'Vue globale',
+  cameraType: 'Vue taxi',
   switchCamera: () => {
     switchCamera()
   }
@@ -442,26 +585,28 @@ cameraParams = {
 cameraFolder.add(cameraParams, 'cameraType').name('Caméra active').listen().disable()
 cameraFolder.add(cameraParams, 'switchCamera').name('Changer (touche C)')
 
-// Dossier "Affichage"
-const displayFolder = gui.addFolder('Affichage')
-displayFolder.add(guiParams, 'showGrid').name('Afficher grille').onChange((value) => {
-  parkingFloors.toggleGrids(value)
-})
-
-// Dossier "Contrôles"
-const controlsFolder = gui.addFolder('Contrôles')
-const controlsInfo = {
-  move: 'Flèches directionnelles',
-  elevator: 'Touche E',
-  camera: 'Touche C'
+// Dossier "Sauvegarde"
+const saveFolder = gui.addFolder('Sauvegarde')
+const saveParams = {
+  status: 'Aucune',
+  reprendre: () => {
+    const saved = saveManager.load()
+    if (saved && saved.vehicles && saved.moves > 0) {
+      saveManager.restoreGameState(vehicleManager, scoreManager, saved)
+    }
+  },
+  effacer: () => {
+    saveManager.clearSave()
+    saveParams.status = 'Aucune'
+    scoreManager.reset()
+  }
 }
-controlsFolder.add(controlsInfo, 'move').name('Déplacer').disable()
-controlsFolder.add(controlsInfo, 'elevator').name('Ascenseur').disable()
-controlsFolder.add(controlsInfo, 'camera').name('Changer caméra').disable()
-controlsFolder.open()
+saveFolder.add(saveParams, 'status').name('État').listen().disable()
+saveFolder.add(saveParams, 'reprendre').name('Reprendre')
+saveFolder.add(saveParams, 'effacer').name('Effacer')
 
 // Afficher le niveau actuel dans la console
-console.log(`🎮 Niveau ${levelManager.currentLevel} chargé: ${levelManager.getCurrentLevel().name}`)
+console.log(`Niveau ${levelManager.currentLevel} chargé: ${levelManager.getCurrentLevel().name}`)
 
 // Fonction pour mettre à jour l'étage affiché
 function updateTaxiFloorDisplay() {
@@ -504,15 +649,28 @@ async function initVehicles() {
 }
 
 initVehicles().then(() => {
-  // Charger la sauvegarde si elle existe
+  // Positionner la caméra taxi sur le joueur dès le démarrage
+  if (playerVehicle && isTaxiCameraActive) {
+    const pos = playerVehicle.getPosition()
+    const distance = 6
+    const height = 1.8
+    const sign = taxiCameraInverted ? -1 : 1
+    
+    // Positionner la caméra immédiatement
+    let cameraX = pos.x + sign * distance * 0.7
+    let cameraZ = pos.z - sign * distance * 0.5
+    
+    taxiCamera.position.set(cameraX, pos.y + height, cameraZ)
+    taxiControls.target.set(pos.x, pos.y + 0.5, pos.z)
+  }
+  
+  // Charger la sauvegarde si elle existe (seulement si au moins 1 mouvement)
   const savedState = saveManager.load()
-  if (savedState && savedState.vehicles) {
-    // Demander si on veut reprendre
-    if (confirm('Une partie sauvegardée a été trouvée. Voulez-vous la reprendre ?')) {
-      saveManager.restoreGameState(vehicleManager, scoreManager, savedState)
-    } else {
-      saveManager.clearSave()
-    }
+  if (savedState && savedState.vehicles && savedState.moves > 0) {
+    // Mettre à jour le statut dans le GUI
+    const mins = Math.floor((savedState.elapsedTime || 0) / 60).toString().padStart(2, '0')
+    const secs = ((savedState.elapsedTime || 0) % 60).toString().padStart(2, '0')
+    saveParams.status = `${savedState.moves} coups - ${mins}:${secs}`
   }
   
   // Afficher le meilleur score dans la console
@@ -523,11 +681,21 @@ initVehicles().then(() => {
 })
 
 // ========== ANIMATION LOOP ==========
+let animationTime = 0
 function animate() {
   requestAnimationFrame(animate)
+  animationTime += 0.016  // ~60fps
+  
   vehicleManager.update()
   exitZone.update()
-  elevators.forEach(elevator => elevator.update())
+  elevators.forEach(elevator => {
+    elevator.update()
+    // Afficher l'indicateur "E" si le joueur est sur l'ascenseur
+    elevator.showIndicatorIfPlayerOn(playerVehicle)
+  })
+  
+  // Mettre à jour le helper de direction (animation de pulsation)
+  inputController.update(animationTime)
   
   // Mettre à jour l'affichage de l'étage du taxi
   updateTaxiFloorDisplay()

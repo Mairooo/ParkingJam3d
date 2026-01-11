@@ -188,8 +188,8 @@ export class ParkingFloors {
         // Stocker une référence pour le GUI
         this.parkingModel = { position: new THREE.Vector3(offsetX, 0, offsetZ) }
         
-        console.log(`✅ Parking loaded with ${meshesToInstance.length} instanced meshes (${floorYPositions.length} floors each)`)
-        console.log(`📊 Optimisation: ${meshesToInstance.length * floorYPositions.length} objets → ${meshesToInstance.length} draw calls`)
+        console.log(`Parking loaded: ${meshesToInstance.length} instanced meshes (${floorYPositions.length} floors)`)
+        console.log(`Optimisation: ${meshesToInstance.length * floorYPositions.length} objets -> ${meshesToInstance.length} draw calls`)
       },
       (progress) => {
         console.log(`Loading parking...`, (progress.loaded / progress.total * 100).toFixed(0) + '%')
@@ -246,12 +246,6 @@ export class ParkingFloors {
       floor.receiveShadow = true
       floor.userData.floorLevel = floorData.level
       this.scene.add(floor)
-      
-      // Grille de repères pour chaque étage
-      const gridHelper = new THREE.GridHelper(20, 20, COLORS.grid, COLORS.gridCenter)
-      gridHelper.position.y = floorData.y + 0.01
-      this.scene.add(gridHelper)
-      this.grids.push(gridHelper)  // Stocker la grille
       
       this.floors.push({ mesh: floor, data: floorData })
     })
