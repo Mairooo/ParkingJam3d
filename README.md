@@ -55,4 +55,4 @@ src/
 
 ## Auteur
 
-Maïro FREBOURG - Projet universitaire Three.js 2025-2026
+Maïro FREBOURG 2025-2026
